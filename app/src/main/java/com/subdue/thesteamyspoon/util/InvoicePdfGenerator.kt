@@ -7,8 +7,8 @@ import androidx.core.content.FileProvider
 import com.subdue.thesteamyspoon.model.BillItem
 import java.io.File
 import java.io.FileOutputStream
+import com.subdue.thesteamyspoon.util.CurrencyFormatter
 import java.text.NumberFormat
-import java.util.Locale
 
 class InvoicePdfGenerator(private val context: Context) {
     private val restaurantName = "The Steamy Spoon"
@@ -37,7 +37,7 @@ class InvoicePdfGenerator(private val context: Context) {
                 isAntiAlias = true
             }
             
-            val currencyFormat = NumberFormat.getCurrencyInstance(Locale.getDefault())
+            val currencyFormat = CurrencyFormatter.getPKRFormatter()
             var yPos = margin
             
             // Restaurant Name

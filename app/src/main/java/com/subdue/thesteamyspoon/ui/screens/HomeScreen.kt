@@ -17,10 +17,11 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.subdue.thesteamyspoon.data.Invoice
 import com.subdue.thesteamyspoon.di.AppContainer
+import com.subdue.thesteamyspoon.util.InvoiceImageGenerator
 import com.subdue.thesteamyspoon.util.InvoicePdfGenerator
 import com.subdue.thesteamyspoon.viewmodel.InvoiceViewModel
+import com.subdue.thesteamyspoon.util.CurrencyFormatter
 import java.text.NumberFormat
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,7 +32,7 @@ fun HomeScreen(
 ) {
     val invoices by invoiceViewModel.invoices.collectAsState()
     val context = LocalContext.current
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale.getDefault())
+    val currencyFormat = CurrencyFormatter.getPKRFormatter()
     
     Scaffold(
     ) { paddingValues ->
@@ -107,9 +108,9 @@ fun HomeScreen(
                             invoice = invoice,
                             currencyFormat = currencyFormat,
                             onShare = {
-                                val pdfGenerator = InvoicePdfGenerator(context)
+                                val imageGenerator = InvoiceImageGenerator(context)
                                 val billItems = invoice.billItems.map { itemData ->
-                                    // Convert BillItemData back to BillItem for PDF generation
+                                    // Convert BillItemData back to BillItem for image generation
                                     com.subdue.thesteamyspoon.model.BillItem(
                                         product = com.subdue.thesteamyspoon.data.Product(
                                             id = itemData.productId,
@@ -123,7 +124,7 @@ fun HomeScreen(
                                     )
                                 }
                                 
-                                val pdfUri = pdfGenerator.generateInvoicePdf(
+                                val imageUri = imageGenerator.generateAndShareInvoice(
                                     billItems = billItems,
                                     billNumber = invoice.billNumber,
                                     dateTime = invoice.dateTime,
@@ -134,11 +135,11 @@ fun HomeScreen(
                                     discount = invoice.discount
                                 )
                                 
-                                pdfUri?.let { uri ->
+                                imageUri?.let { uri ->
                                     val shareIntent = Intent().apply {
                                         action = Intent.ACTION_SEND
                                         putExtra(Intent.EXTRA_STREAM, uri)
-                                        type = "application/pdf"
+                                        type = "image/png"
                                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                     }
                                     context.startActivity(Intent.createChooser(shareIntent, "Share Invoice"))

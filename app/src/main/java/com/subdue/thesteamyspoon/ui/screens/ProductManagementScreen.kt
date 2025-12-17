@@ -14,8 +14,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.subdue.thesteamyspoon.data.Product
 import com.subdue.thesteamyspoon.di.AppContainer
 import com.subdue.thesteamyspoon.viewmodel.ProductViewModel
+import com.subdue.thesteamyspoon.util.CurrencyFormatter
 import java.text.NumberFormat
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -122,7 +122,7 @@ fun ProductManagementCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale.getDefault())
+    val currencyFormat = CurrencyFormatter.getPKRFormatter()
     
     Card(
         modifier = Modifier.fillMaxWidth(),

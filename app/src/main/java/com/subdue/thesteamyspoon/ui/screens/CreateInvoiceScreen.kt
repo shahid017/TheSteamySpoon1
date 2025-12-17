@@ -27,11 +27,12 @@ import com.subdue.thesteamyspoon.data.Product
 import com.subdue.thesteamyspoon.di.AppContainer
 import com.subdue.thesteamyspoon.model.BillItem
 import com.subdue.thesteamyspoon.util.BillImageGenerator
+import com.subdue.thesteamyspoon.util.CurrencyFormatter
+import com.subdue.thesteamyspoon.util.InvoiceImageGenerator
 import com.subdue.thesteamyspoon.util.InvoicePdfGenerator
 import com.subdue.thesteamyspoon.viewmodel.BillViewModel
 import com.subdue.thesteamyspoon.viewmodel.ProductViewModel
 import java.text.NumberFormat
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +52,7 @@ fun CreateInvoiceScreen(
     var showAddItemsDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale.getDefault())
+    val currencyFormat = CurrencyFormatter.getPKRFormatter()
     val subtotal by billViewModel.subtotal.collectAsState()
     val taxAmount by billViewModel.taxAmount.collectAsState()
     val grandTotal by billViewModel.grandTotal.collectAsState()
@@ -122,9 +123,9 @@ fun CreateInvoiceScreen(
                         onClick = {
                             val dateTime = billViewModel.getBillDate()
                             
-                            // Generate PDF invoice
-                            val pdfGenerator = InvoicePdfGenerator(context)
-                            val pdfUri = pdfGenerator.generateInvoicePdf(
+                            // Generate invoice image (PNG) using Bitmap + Canvas
+                            val imageGenerator = InvoiceImageGenerator(context)
+                            val imageUri = imageGenerator.generateAndShareInvoice(
                                 billItems = billItems,
                                 billNumber = billNumber,
                                 dateTime = dateTime,
@@ -147,11 +148,11 @@ fun CreateInvoiceScreen(
                                 grandTotal = grandTotal
                             )
                             
-                            pdfUri?.let { uri ->
+                            imageUri?.let { uri ->
                                 val shareIntent = Intent().apply {
                                     action = Intent.ACTION_SEND
                                     putExtra(Intent.EXTRA_STREAM, uri)
-                                    type = "application/pdf"
+                                    type = "image/png"
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
                                 context.startActivity(Intent.createChooser(shareIntent, "Share Invoice"))
@@ -213,7 +214,7 @@ fun BillItemCard(
     onQuantityChange: (Int) -> Unit,
     onRemove: () -> Unit
 ) {
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale.getDefault())
+    val currencyFormat = CurrencyFormatter.getPKRFormatter()
     var quantityText by remember { mutableStateOf(item.quantity.toString()) }
     
     // Sync quantityText when item.quantity changes externally
@@ -484,6 +485,20 @@ fun AddItemsDialog(
     onDismiss: () -> Unit,
     onProductSelected: (Product) -> Unit
 ) {
+    var searchQuery by remember { mutableStateOf("") }
+    
+    // Filter products based on search query
+    val filteredProducts = remember(products, searchQuery) {
+        if (searchQuery.isBlank()) {
+            products
+        } else {
+            products.filter { product ->
+                product.name.contains(searchQuery, ignoreCase = true) ||
+                product.description.contains(searchQuery, ignoreCase = true)
+            }
+        }
+    }
+    
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier
@@ -514,20 +529,43 @@ fun AddItemsDialog(
                 
                 HorizontalDivider()
                 
+                // Search Bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    placeholder = { Text("Search products...") },
+                    leadingIcon = {
+                        Text("🔍", fontSize = 20.sp)
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Text("×", fontSize = 20.sp)
+                            }
+                        }
+                    },
+                    singleLine = true
+                )
+                
+                HorizontalDivider()
+                
                 // Products List
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(products) { product ->
+                    items(filteredProducts) { product ->
                         ProductSelectionCard(
                             product = product,
                             onClick = { onProductSelected(product) }
                         )
                     }
                     
-                    if (products.isEmpty()) {
+                    if (filteredProducts.isEmpty()) {
                         item {
                             Box(
                                 modifier = Modifier
@@ -536,9 +574,14 @@ fun AddItemsDialog(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "No products available",
+                                    text = if (searchQuery.isNotEmpty()) {
+                                        "No products found for \"$searchQuery\""
+                                    } else {
+                                        "No products available"
+                                    },
                                     fontSize = 16.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                                 )
                             }
                         }
@@ -554,7 +597,7 @@ fun ProductSelectionCard(
     product: Product,
     onClick: () -> Unit
 ) {
-    val currencyFormat = NumberFormat.getCurrencyInstance(Locale.getDefault())
+    val currencyFormat = CurrencyFormatter.getPKRFormatter()
     
     Card(
         onClick = onClick,

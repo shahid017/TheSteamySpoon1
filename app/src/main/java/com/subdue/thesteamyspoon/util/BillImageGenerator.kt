@@ -11,8 +11,8 @@ import androidx.core.content.FileProvider
 import com.subdue.thesteamyspoon.model.BillItem
 import java.io.File
 import java.io.FileOutputStream
+import com.subdue.thesteamyspoon.util.CurrencyFormatter
 import java.text.NumberFormat
-import java.util.Locale
 
 class BillImageGenerator(private val context: Context) {
     private val restaurantName = "The Steamy Spoon"
@@ -97,7 +97,7 @@ class BillImageGenerator(private val context: Context) {
             color = Color.BLACK
         }
         
-        val currencyFormat = NumberFormat.getCurrencyInstance(Locale.getDefault())
+        val currencyFormat = CurrencyFormatter.getPKRFormatter()
         
         billItems.forEach { item ->
             val product = item.product

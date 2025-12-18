@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Product::class, Invoice::class], version = 4, exportSchema = false)
+@Database(entities = [Product::class, Invoice::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
     abstract fun invoiceDao(): InvoiceDao
@@ -72,6 +72,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
         
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Add houseNumber and block columns to invoices table
+                database.execSQL("ALTER TABLE invoices ADD COLUMN houseNumber TEXT")
+                database.execSQL("ALTER TABLE invoices ADD COLUMN block TEXT")
+            }
+        }
+        
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -79,7 +87,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "restaurant_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     .fallbackToDestructiveMigration() // For development - remove in production
                     .build()
                 INSTANCE = instance

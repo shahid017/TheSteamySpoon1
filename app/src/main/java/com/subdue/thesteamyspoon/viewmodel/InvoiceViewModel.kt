@@ -2,6 +2,7 @@ package com.subdue.thesteamyspoon.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.subdue.thesteamyspoon.data.DailySalesSummary
 import com.subdue.thesteamyspoon.data.InvoiceRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -11,6 +12,14 @@ import kotlinx.coroutines.launch
 class InvoiceViewModel(private val repository: InvoiceRepository) : ViewModel() {
     val invoices: StateFlow<List<com.subdue.thesteamyspoon.data.Invoice>> = 
         repository.getRecentInvoices(50)
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
+    
+    val dailySalesSummary: StateFlow<List<DailySalesSummary>> =
+        repository.getDailySalesSummary()
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5000),

@@ -17,7 +17,9 @@ data class Invoice(
     val taxAmount: Double,
     val discount: Double,
     val grandTotal: Double,
-    val billItems: List<BillItemData>
+    val billItems: List<BillItemData>,
+    val houseNumber: String? = null,
+    val block: String? = null
 )
 
 data class BillItemData(
@@ -28,6 +30,7 @@ data class BillItemData(
     val quantity: Int, // This is the serving quantity
     val defaultServing: Int,
     val defaultPieces: Int,
-    val totalPrice: Double
+    val totalPrice: Double,
+    val addOns: List<String> = emptyList()
 )
 

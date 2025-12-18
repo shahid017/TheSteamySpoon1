@@ -19,6 +19,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -47,10 +48,24 @@ fun CreateInvoiceScreen(
     val billNumber by billViewModel.billNumber.collectAsState()
     val taxRate by billViewModel.taxRate.collectAsState()
     val discount by billViewModel.discount.collectAsState()
+    val houseNumber by billViewModel.houseNumber.collectAsState()
+    val block by billViewModel.block.collectAsState()
     val context = LocalContext.current
     
     var showAddItemsDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    
+    val blocks = listOf(
+        "Shaheen Block",
+        "Mehran Block",
+        "Nishat Block",
+        "Khyber Block",
+        "Punjab Block",
+        "Bolan Block",
+        "Jehlum Block",
+        "Kashmir Block",
+        "Rachna Block"
+    )
     
     val currencyFormat = CurrencyFormatter.getPKRFormatter()
     val subtotal by billViewModel.subtotal.collectAsState()
@@ -79,8 +94,8 @@ fun CreateInvoiceScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(vertical = 16.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(vertical = 12.dp)
         ) {
             // Bill Items Section
             items(billItems) { item ->
@@ -91,6 +106,9 @@ fun CreateInvoiceScreen(
                     },
                     onRemove = {
                         billViewModel.removeProductFromBill(item.product.id)
+                    },
+                    onAddOnsChange = { addOns ->
+                        billViewModel.updateAddOns(item.product.id, addOns)
                     }
                 )
             }
@@ -99,6 +117,17 @@ fun CreateInvoiceScreen(
             item {
                 AddItemsCard(
                     onClick = { showAddItemsDialog = true }
+                )
+            }
+            
+            // Customer Info Section
+            item {
+                CustomerInfoSection(
+                    houseNumber = houseNumber ?: "",
+                    block = block ?: "",
+                    blocks = blocks,
+                    onHouseNumberChange = { billViewModel.setHouseNumber(it.ifBlank { null }) },
+                    onBlockChange = { billViewModel.setBlock(it.ifBlank { null }) }
                 )
             }
             
@@ -133,7 +162,9 @@ fun CreateInvoiceScreen(
                                 subtotal = subtotal,
                                 taxRate = taxRate,
                                 taxAmount = taxAmount,
-                                discount = discount
+                                discount = discount,
+                                houseNumber = houseNumber,
+                                block = block
                             )
                             
                             // Save invoice to database
@@ -145,7 +176,14 @@ fun CreateInvoiceScreen(
                                 taxRate = taxRate,
                                 taxAmount = taxAmount,
                                 discount = discount,
-                                grandTotal = grandTotal
+                                grandTotal = grandTotal,
+                                houseNumber = houseNumber,
+                                block = block,
+                                onSuccess = {
+                                    // Clear bill and navigate back after successful save
+                                    billViewModel.clearBill()
+                                    onInvoiceGenerated()
+                                }
                             )
                             
                             imageUri?.let { uri ->
@@ -157,10 +195,6 @@ fun CreateInvoiceScreen(
                                 }
                                 context.startActivity(Intent.createChooser(shareIntent, "Share Invoice"))
                             }
-                            
-                            // Clear bill and navigate back
-                            billViewModel.clearBill()
-                            onInvoiceGenerated()
                         },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -212,134 +246,289 @@ fun CreateInvoiceScreen(
 fun BillItemCard(
     item: BillItem,
     onQuantityChange: (Int) -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onAddOnsChange: (List<String>) -> Unit
 ) {
     val currencyFormat = CurrencyFormatter.getPKRFormatter()
     var quantityText by remember { mutableStateOf(item.quantity.toString()) }
+    var showAddOnsDialog by remember { mutableStateOf(false) }
     
     // Sync quantityText when item.quantity changes externally
     LaunchedEffect(item.quantity) {
         quantityText = item.quantity.toString()
     }
     
+    // Available add-ons
+    val availableAddOns = listOf("Cheese", "Extra Sauce", "Extra Spice", "Extra Toppings")
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color(0xFF4A148C) // Dark purple
         )
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Product Image Placeholder
-            Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF7B1FA2)),
-                contentAlignment = Alignment.Center
+            // First row: Product name, price, quantity controls
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = item.product.name.take(1).uppercase(),
-                    color = Color.White,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                // Product name and price
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.product.name,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${currencyFormat.format(item.product.pricePerServing)} × ${item.quantity}",
+                            fontSize = 13.sp,
+                            color = Color(0xFFE1BEE7)
+                        )
+                        Text(
+                            text = "•",
+                            fontSize = 13.sp,
+                            color = Color(0xFFE1BEE7)
+                        )
+                        Text(
+                            text = "${item.quantity} serving${if (item.quantity != 1) "s" else ""} (${item.quantity * item.product.defaultPieces} pcs)",
+                            fontSize = 13.sp,
+                            color = Color(0xFFE1BEE7)
+                        )
+                    }
+                }
+                
+                // Quantity Controls
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = {
+                            val newQty = (quantityText.toIntOrNull() ?: item.quantity) - 1
+                            if (newQty > 0) {
+                                quantityText = newQty.toString()
+                                onQuantityChange(newQty)
+                            } else {
+                                onRemove()
+                            }
+                        },
+                        modifier = Modifier.size(32.dp),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.White.copy(alpha = 0.2f),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("-", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                    
+                    Text(
+                        text = quantityText,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.width(24.dp),
+                        textAlign = TextAlign.Center
+                    )
+                    
+                    IconButton(
+                        onClick = {
+                            val newQty = (quantityText.toIntOrNull() ?: item.quantity) + 1
+                            quantityText = newQty.toString()
+                            onQuantityChange(newQty)
+                        },
+                        modifier = Modifier.size(32.dp),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = Color.White.copy(alpha = 0.2f),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("+", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
             }
             
-            // Product Info
-            Column(
-                modifier = Modifier.weight(1f)
+            // Second row: Add-ons and total (if add-ons exist)
+            if (item.addOns.isNotEmpty() || item.addOnPrice > 0) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = { showAddOnsDialog = true },
+                        modifier = Modifier.padding(0.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color(0xFFE1BEE7)
+                        )
+                    ) {
+                        Text(
+                            text = "Add-ons: ${item.addOns.joinToString(", ")}",
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
+                    if (item.addOnPrice > 0) {
+                        Text(
+                            text = "+${currencyFormat.format(item.addOnPrice)}",
+                            fontSize = 12.sp,
+                            color = Color(0xFFE1BEE7)
+                        )
+                    }
+                }
+            } else {
+                TextButton(
+                    onClick = { showAddOnsDialog = true },
+                    modifier = Modifier.padding(0.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color(0xFFE1BEE7)
+                    )
+                ) {
+                    Text(
+                        text = "Add Add-ons",
+                        fontSize = 11.sp
+                    )
+                }
+            }
+            
+            // Third row: Total price
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                Spacer(modifier = Modifier)
                 Text(
-                    text = item.product.name,
-                    fontSize = 18.sp,
+                    text = "Total: ${currencyFormat.format(item.totalPrice)}",
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
-                if (item.product.description.isNotEmpty()) {
-                    Text(
-                        text = item.product.description,
-                        fontSize = 14.sp,
-                        color = Color(0xFFE1BEE7),
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-                Row(
-                    modifier = Modifier.padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = "Servings: ${item.quantity}",
-                        fontSize = 14.sp,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "Pieces: ${item.quantity * item.product.defaultPieces}",
-                        fontSize = 14.sp,
-                        color = Color.White
-                    )
-                }
-                Text(
-                    text = currencyFormat.format(item.product.pricePerServing),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
             }
-            
-            // Quantity Controls
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+        }
+    }
+    
+    // Add-ons Selection Dialog
+    if (showAddOnsDialog) {
+        AddOnsDialog(
+            availableAddOns = availableAddOns,
+            selectedAddOns = item.addOns,
+            onDismiss = { showAddOnsDialog = false },
+            onConfirm = { selected ->
+                onAddOnsChange(selected)
+                showAddOnsDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+fun AddOnsDialog(
+    availableAddOns: List<String>,
+    selectedAddOns: List<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (List<String>) -> Unit
+) {
+    val currencyFormat = CurrencyFormatter.getPKRFormatter()
+    var selected by remember { mutableStateOf(selectedAddOns.toSet()) }
+    
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                IconButton(
-                    onClick = {
-                        val newQty = (quantityText.toIntOrNull() ?: item.quantity) - 1
-                        if (newQty > 0) {
-                            quantityText = newQty.toString()
-                            onQuantityChange(newQty)
-                        } else {
-                            onRemove()
-                        }
-                    },
-                    modifier = Modifier.size(36.dp),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.White.copy(alpha = 0.2f),
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text("-", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                }
-                
                 Text(
-                    text = quantityText,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.width(30.dp),
-                    textAlign = TextAlign.Center
+                    text = "Select Add-ons",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
                 )
                 
-                IconButton(
-                    onClick = {
-                        val newQty = (quantityText.toIntOrNull() ?: item.quantity) + 1
-                        quantityText = newQty.toString()
-                        onQuantityChange(newQty)
-                    },
-                    modifier = Modifier.size(36.dp),
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = Color.White.copy(alpha = 0.2f),
-                        contentColor = Color.White
-                    )
+                availableAddOns.forEach { addOn ->
+                    val isSelected = selected.contains(addOn)
+                    val price = if (addOn.equals("Cheese", ignoreCase = true)) 100.0 else 50.0
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selected = if (isSelected) {
+                                    selected - addOn
+                                } else {
+                                    selected + addOn
+                                }
+                            }
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = {
+                                    selected = if (it) {
+                                        selected + addOn
+                                    } else {
+                                        selected - addOn
+                                    }
+                                }
+                            )
+                            Text(
+                                text = addOn,
+                                fontSize = 16.sp
+                            )
+                        }
+                        Text(
+                            text = currencyFormat.format(price),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("+", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Cancel")
+                    }
+                    Button(
+                        onClick = { onConfirm(selected.toList()) },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Confirm")
+                    }
                 }
             }
         }
@@ -384,6 +573,84 @@ fun AddItemsCard(
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
             )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CustomerInfoSection(
+    houseNumber: String,
+    block: String,
+    blocks: List<String>,
+    onHouseNumberChange: (String) -> Unit,
+    onBlockChange: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Customer Information",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            
+            // House Number Field
+            OutlinedTextField(
+                value = houseNumber,
+                onValueChange = onHouseNumberChange,
+                label = { Text("House Number") },
+                placeholder = { Text("Enter house number") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            
+            // Block Dropdown
+            var expanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = block,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Block") },
+                    placeholder = { Text("Select block") },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor()
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    blocks.forEach { blockOption ->
+                        DropdownMenuItem(
+                            text = { Text(blockOption) },
+                            onClick = {
+                                onBlockChange(blockOption)
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
         }
     }
 }

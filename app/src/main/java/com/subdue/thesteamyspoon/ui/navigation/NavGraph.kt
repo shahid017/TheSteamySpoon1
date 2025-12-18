@@ -8,11 +8,13 @@ import androidx.navigation.compose.composable
 import com.subdue.thesteamyspoon.ui.screens.CreateInvoiceScreen
 import com.subdue.thesteamyspoon.ui.screens.HomeScreen
 import com.subdue.thesteamyspoon.ui.screens.ProductManagementScreen
+import com.subdue.thesteamyspoon.ui.screens.SalesSummaryScreen
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
     object CreateInvoice : Screen("create_invoice")
     object ManageProducts : Screen("manage_products")
+    object SalesSummary : Screen("sales_summary")
 }
 
 @Composable
@@ -32,6 +34,9 @@ fun NavGraph(
                 },
                 onNavigateToManageProducts = {
                     navController.navigate(Screen.ManageProducts.route)
+                },
+                onNavigateToSalesSummary = {
+                    navController.navigate(Screen.SalesSummary.route)
                 }
             )
         }
@@ -49,6 +54,14 @@ fun NavGraph(
         
         composable(Screen.ManageProducts.route) {
             ProductManagementScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        
+        composable(Screen.SalesSummary.route) {
+            SalesSummaryScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }

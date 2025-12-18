@@ -52,10 +52,12 @@ class InvoiceImageGenerator(private val context: Context) {
         subtotal: Double,
         taxRate: Double,
         taxAmount: Double,
-        discount: Double
+        discount: Double,
+        houseNumber: String? = null,
+        block: String? = null
     ): Bitmap {
         // Calculate dynamic height
-        val height = calculateImageHeight(billItems, subtotal, taxRate, discount)
+        val height = calculateImageHeight(billItems, subtotal, taxRate, discount, houseNumber, block)
         
         // Create bitmap
         val bitmap = Bitmap.createBitmap(imageWidth, height, Bitmap.Config.ARGB_8888)
@@ -94,6 +96,24 @@ class InvoiceImageGenerator(private val context: Context) {
         // Date (Normal - 32f)
         val dateWidth = paint.measureText(dateTime)
         canvas.drawText(dateTime, (imageWidth - dateWidth) / 2, yPos, paint)
+        yPos += lineSpacing
+        
+        // Customer Info (if provided)
+        if (!houseNumber.isNullOrBlank() || !block.isNullOrBlank()) {
+            val customerInfo = buildString {
+                if (!block.isNullOrBlank()) {
+                    append(block)
+                }
+                if (!houseNumber.isNullOrBlank()) {
+                    if (isNotEmpty()) append(", ")
+                    append("House #$houseNumber")
+                }
+            }
+            val customerInfoWidth = paint.measureText(customerInfo)
+            canvas.drawText(customerInfo, (imageWidth - customerInfoWidth) / 2, yPos, paint)
+            yPos += lineSpacing
+        }
+        
         yPos += dividerSpacing
         
         // Divider line
@@ -134,6 +154,33 @@ class InvoiceImageGenerator(private val context: Context) {
             canvas.drawText(priceText, imageWidth - margin - priceWidth, yPos, paint)
             
             yPos += itemSpacing
+            
+            // Add-ons (if any)
+            if (item.addOns.isNotEmpty()) {
+                paint.apply {
+                    textSize = normalFontSize * 0.85f
+                    typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                    color = Color.GRAY
+                }
+                val addOnsText = "  Add-ons: ${item.addOns.joinToString(", ")}"
+                canvas.drawText(addOnsText, margin + 20f, yPos, paint)
+                
+                // Add-on prices
+                val addOnPrice = item.addOnPrice
+                if (addOnPrice > 0) {
+                    val addOnPriceText = currencyFormat.format(addOnPrice)
+                    val addOnPriceWidth = paint.measureText(addOnPriceText)
+                    canvas.drawText(addOnPriceText, imageWidth - margin - addOnPriceWidth, yPos, paint)
+                }
+                
+                yPos += itemSpacing * 0.7f
+                
+                // Reset paint for next item
+                paint.apply {
+                    textSize = normalFontSize
+                    color = Color.BLACK
+                }
+            }
         }
         
         yPos += dividerSpacing
@@ -227,7 +274,9 @@ class InvoiceImageGenerator(private val context: Context) {
         billItems: List<BillItem>,
         subtotal: Double,
         taxRate: Double,
-        discount: Double
+        discount: Double,
+        houseNumber: String? = null,
+        block: String? = null
     ): Int {
         var height = padding.toInt() // Top padding
         
@@ -237,11 +286,21 @@ class InvoiceImageGenerator(private val context: Context) {
         // Invoice number and date
         height += normalFontSize.toInt() * 2 + lineSpacing.toInt()
         
+        // Customer info (if provided)
+        if (!houseNumber.isNullOrBlank() || !block.isNullOrBlank()) {
+            height += normalFontSize.toInt() + lineSpacing.toInt()
+        }
+        
         // Divider
         height += dividerSpacing.toInt() * 2
         
-        // Items (each item takes itemSpacing)
-        height += billItems.size * itemSpacing.toInt()
+        // Items (each item takes itemSpacing, plus extra for add-ons if present)
+        billItems.forEach { item ->
+            height += itemSpacing.toInt()
+            if (item.addOns.isNotEmpty()) {
+                height += (itemSpacing * 0.7f).toInt()
+            }
+        }
         
         // Divider
         height += dividerSpacing.toInt() * 2
@@ -319,7 +378,9 @@ class InvoiceImageGenerator(private val context: Context) {
         subtotal: Double,
         taxRate: Double,
         taxAmount: Double,
-        discount: Double
+        discount: Double,
+        houseNumber: String? = null,
+        block: String? = null
     ): Uri? {
         val bitmap = generateInvoiceBitmap(
             billItems = billItems,
@@ -329,7 +390,9 @@ class InvoiceImageGenerator(private val context: Context) {
             subtotal = subtotal,
             taxRate = taxRate,
             taxAmount = taxAmount,
-            discount = discount
+            discount = discount,
+            houseNumber = houseNumber,
+            block = block
         )
         
         val file = saveInvoiceImage(bitmap, billNumber) ?: return null

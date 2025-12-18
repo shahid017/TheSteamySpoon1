@@ -26,11 +26,27 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
     private val _billNumber = MutableStateFlow(1)
     val billNumber: StateFlow<Int> = _billNumber.asStateFlow()
     
+    init {
+        // Initialize bill number from database
+        invoiceRepository?.let { repository ->
+            viewModelScope.launch {
+                val maxBillNumber = repository.getMaxBillNumber()
+                _billNumber.value = maxBillNumber + 1
+            }
+        }
+    }
+    
     private val _taxRate = MutableStateFlow(0.0) // No tax by default
     val taxRate: StateFlow<Double> = _taxRate.asStateFlow()
     
     private val _discount = MutableStateFlow(0.0)
     val discount: StateFlow<Double> = _discount.asStateFlow()
+    
+    private val _houseNumber = MutableStateFlow<String?>(null)
+    val houseNumber: StateFlow<String?> = _houseNumber.asStateFlow()
+    
+    private val _block = MutableStateFlow<String?>(null)
+    val block: StateFlow<String?> = _block.asStateFlow()
     
     // Derived StateFlows that automatically update when billItems, taxRate, or discount change
     val subtotal: StateFlow<Double> = _billItems.map { items ->
@@ -63,6 +79,14 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
     
     fun setDiscount(amount: Double) {
         _discount.value = amount
+    }
+    
+    fun setHouseNumber(houseNumber: String?) {
+        _houseNumber.value = houseNumber
+    }
+    
+    fun setBlock(block: String?) {
+        _block.value = block
     }
     
     fun addProductToBill(product: Product) {
@@ -104,8 +128,24 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
         _billItems.value = currentItems
     }
     
+    fun updateAddOns(productId: Long, addOns: List<String>) {
+        val currentItems = _billItems.value.toMutableList()
+        val itemIndex = currentItems.indexOfFirst { it.product.id == productId }
+        
+        if (itemIndex >= 0) {
+            val existingItem = currentItems[itemIndex]
+            currentItems[itemIndex] = existingItem.copy(addOns = addOns)
+            _billItems.value = currentItems
+        }
+    }
+    
     fun clearBill() {
         _billItems.value = emptyList()
+        _houseNumber.value = null
+        _block.value = null
+    }
+    
+    fun incrementBillNumber() {
         _billNumber.value = _billNumber.value + 1
     }
     
@@ -122,7 +162,10 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
         taxRate: Double,
         taxAmount: Double,
         discount: Double,
-        grandTotal: Double
+        grandTotal: Double,
+        houseNumber: String? = null,
+        block: String? = null,
+        onSuccess: () -> Unit = {}
     ) {
         invoiceRepository?.let { repository ->
             viewModelScope.launch {
@@ -135,7 +178,8 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
                         quantity = item.quantity,
                         defaultServing = item.product.defaultServing,
                         defaultPieces = item.product.defaultPieces,
-                        totalPrice = item.totalPrice
+                        totalPrice = item.totalPrice,
+                        addOns = item.addOns
                     )
                 }
                 
@@ -147,11 +191,20 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
                     taxAmount = taxAmount,
                     discount = discount,
                     grandTotal = grandTotal,
-                    billItems = billItemData
+                    billItems = billItemData,
+                    houseNumber = houseNumber,
+                    block = block
                 )
                 
                 repository.insertInvoice(invoice)
+                // Increment bill number after successful save
+                incrementBillNumber()
+                onSuccess()
             }
+        } ?: run {
+            // If no repository, still increment for consistency
+            incrementBillNumber()
+            onSuccess()
         }
     }
 }

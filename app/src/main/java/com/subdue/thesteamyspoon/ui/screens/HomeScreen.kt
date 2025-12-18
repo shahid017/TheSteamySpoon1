@@ -28,7 +28,8 @@ import java.text.NumberFormat
 fun HomeScreen(
     invoiceViewModel: InvoiceViewModel = viewModel(factory = AppContainer.viewModelFactory),
     onNavigateToCreateInvoice: () -> Unit,
-    onNavigateToManageProducts: () -> Unit
+    onNavigateToManageProducts: () -> Unit,
+    onNavigateToSalesSummary: () -> Unit
 ) {
     val invoices by invoiceViewModel.invoices.collectAsState()
     val context = LocalContext.current
@@ -64,6 +65,23 @@ fun HomeScreen(
                 ) {
                     Text(
                         "Generate New Invoice",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                OutlinedButton(
+                    onClick = onNavigateToSalesSummary,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        "View Sales Summary",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(vertical = 8.dp)
@@ -120,7 +138,8 @@ fun HomeScreen(
                                             defaultServing = itemData.defaultServing,
                                             defaultPieces = itemData.defaultPieces
                                         ),
-                                        quantity = itemData.quantity
+                                        quantity = itemData.quantity,
+                                        addOns = itemData.addOns
                                     )
                                 }
                                 
@@ -132,7 +151,9 @@ fun HomeScreen(
                                     subtotal = invoice.subtotal,
                                     taxRate = invoice.taxRate,
                                     taxAmount = invoice.taxAmount,
-                                    discount = invoice.discount
+                                    discount = invoice.discount,
+                                    houseNumber = invoice.houseNumber,
+                                    block = invoice.block
                                 )
                                 
                                 imageUri?.let { uri ->

@@ -19,7 +19,8 @@ data class Invoice(
     val grandTotal: Double,
     val billItems: List<BillItemData>,
     val houseNumber: String? = null,
-    val block: String? = null
+    val block: String? = null,
+    val phoneNumber: String? = null
 )
 
 data class BillItemData(

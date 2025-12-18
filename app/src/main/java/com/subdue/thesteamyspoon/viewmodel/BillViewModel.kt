@@ -48,6 +48,9 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
     private val _block = MutableStateFlow<String?>(null)
     val block: StateFlow<String?> = _block.asStateFlow()
     
+    private val _phoneNumber = MutableStateFlow<String?>(null)
+    val phoneNumber: StateFlow<String?> = _phoneNumber.asStateFlow()
+    
     // Derived StateFlows that automatically update when billItems, taxRate, or discount change
     val subtotal: StateFlow<Double> = _billItems.map { items ->
         items.sumOf { it.totalPrice }
@@ -87,6 +90,10 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
     
     fun setBlock(block: String?) {
         _block.value = block
+    }
+    
+    fun setPhoneNumber(phoneNumber: String?) {
+        _phoneNumber.value = phoneNumber
     }
     
     fun addProductToBill(product: Product) {
@@ -143,6 +150,7 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
         _billItems.value = emptyList()
         _houseNumber.value = null
         _block.value = null
+        _phoneNumber.value = null
     }
     
     fun incrementBillNumber() {
@@ -165,6 +173,7 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
         grandTotal: Double,
         houseNumber: String? = null,
         block: String? = null,
+        phoneNumber: String? = null,
         onSuccess: () -> Unit = {}
     ) {
         invoiceRepository?.let { repository ->
@@ -193,7 +202,8 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
                     grandTotal = grandTotal,
                     billItems = billItemData,
                     houseNumber = houseNumber,
-                    block = block
+                    block = block,
+                    phoneNumber = phoneNumber
                 )
                 
                 repository.insertInvoice(invoice)

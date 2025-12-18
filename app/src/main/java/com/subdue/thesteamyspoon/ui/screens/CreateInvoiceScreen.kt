@@ -1,5 +1,5 @@
 package com.subdue.thesteamyspoon.ui.screens
-
+import androidx.compose.ui.text.input.KeyboardType
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,6 +51,7 @@ fun CreateInvoiceScreen(
     val discount by billViewModel.discount.collectAsState()
     val houseNumber by billViewModel.houseNumber.collectAsState()
     val block by billViewModel.block.collectAsState()
+    val phoneNumber by billViewModel.phoneNumber.collectAsState()
     val context = LocalContext.current
     
     var showAddItemsDialog by remember { mutableStateOf(false) }
@@ -125,9 +127,11 @@ fun CreateInvoiceScreen(
                 CustomerInfoSection(
                     houseNumber = houseNumber ?: "",
                     block = block ?: "",
+                    phoneNumber = phoneNumber ?: "",
                     blocks = blocks,
                     onHouseNumberChange = { billViewModel.setHouseNumber(it.ifBlank { null }) },
-                    onBlockChange = { billViewModel.setBlock(it.ifBlank { null }) }
+                    onBlockChange = { billViewModel.setBlock(it.ifBlank { null }) },
+                    onPhoneNumberChange = { billViewModel.setPhoneNumber(it.ifBlank { null }) }
                 )
             }
             
@@ -164,7 +168,8 @@ fun CreateInvoiceScreen(
                                 taxAmount = taxAmount,
                                 discount = discount,
                                 houseNumber = houseNumber,
-                                block = block
+                                block = block,
+                                phoneNumber = phoneNumber
                             )
                             
                             // Save invoice to database
@@ -179,6 +184,7 @@ fun CreateInvoiceScreen(
                                 grandTotal = grandTotal,
                                 houseNumber = houseNumber,
                                 block = block,
+                                phoneNumber = phoneNumber,
                                 onSuccess = {
                                     // Clear bill and navigate back after successful save
                                     billViewModel.clearBill()
@@ -582,9 +588,11 @@ fun AddItemsCard(
 fun CustomerInfoSection(
     houseNumber: String,
     block: String,
+    phoneNumber: String,
     blocks: List<String>,
     onHouseNumberChange: (String) -> Unit,
-    onBlockChange: (String) -> Unit
+    onBlockChange: (String) -> Unit,
+    onPhoneNumberChange: (String) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -651,6 +659,19 @@ fun CustomerInfoSection(
                     }
                 }
             }
+            
+            // Phone Number Field
+            OutlinedTextField(
+                value = phoneNumber,
+                onValueChange = onPhoneNumberChange,
+                label = { Text("Phone Number") },
+                placeholder = { Text("Enter phone number") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Phone
+                )
+            )
         }
     }
 }

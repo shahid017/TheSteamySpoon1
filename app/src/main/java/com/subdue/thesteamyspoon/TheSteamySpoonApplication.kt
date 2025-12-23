@@ -15,14 +15,10 @@ class TheSteamySpoonApplication : Application() {
         super.onCreate()
         AppContainer.initialize(this)
         
-        // Seed default products if database is empty
+        // Seed default products - ensures all menu products are present
         applicationScope.launch {
-            val productCount = AppContainer.database.productDao().getProductCount()
-            
-            if (productCount == 0) {
-                val seeder = DefaultProductsSeeder(AppContainer.productRepository)
-                seeder.seedDefaultProducts()
-            }
+            val seeder = DefaultProductsSeeder(AppContainer.productRepository)
+            seeder.seedDefaultProductsSync()
         }
     }
 }

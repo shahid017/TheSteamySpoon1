@@ -11,6 +11,7 @@ data class Product(
     val pricePerServing: Double,
     val defaultServing: Int,
     val defaultPieces: Int,
-    val description: String = "" // Optional description/variant like "Less Spicy"
+    val description: String = "", // Optional description/variant like "Less Spicy"
+    val category: String = "" // Category like "Soups", "Light Cravings", etc.
 )
 

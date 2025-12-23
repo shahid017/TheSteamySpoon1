@@ -1,6 +1,7 @@
 package com.subdue.thesteamyspoon.ui.screens
 
 import android.content.Intent
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,11 +30,13 @@ fun HomeScreen(
     invoiceViewModel: InvoiceViewModel = viewModel(factory = AppContainer.viewModelFactory),
     onNavigateToCreateInvoice: () -> Unit,
     onNavigateToManageProducts: () -> Unit,
-    onNavigateToSalesSummary: () -> Unit
+    onNavigateToSalesSummary: () -> Unit,
+    onNavigateToInvoiceDetail: (Long) -> Unit = {}
 ) {
     val invoices by invoiceViewModel.invoices.collectAsState()
     val context = LocalContext.current
     val currencyFormat = CurrencyFormatter.getPKRFormatter()
+    var invoiceToDelete by remember { mutableStateOf<Invoice?>(null) }
     
     Scaffold(
     ) { paddingValues ->
@@ -125,6 +128,9 @@ fun HomeScreen(
                         InvoiceCard(
                             invoice = invoice,
                             currencyFormat = currencyFormat,
+                            onClick = {
+                                onNavigateToInvoiceDetail(invoice.id)
+                            },
                             onShare = {
                                 val imageGenerator = InvoiceImageGenerator(context)
                                 val billItems = invoice.billItems.map { itemData ->
@@ -168,7 +174,7 @@ fun HomeScreen(
                                 }
                             },
                             onDelete = {
-                                invoiceViewModel.deleteInvoice(invoice)
+                                invoiceToDelete = invoice
                             }
                         )
                     }
@@ -176,17 +182,49 @@ fun HomeScreen(
             }
         }
     }
+    
+    // Delete Confirmation Dialog
+    invoiceToDelete?.let { invoice ->
+        AlertDialog(
+            onDismissRequest = { invoiceToDelete = null },
+            title = { Text("Delete Invoice") },
+            text = { 
+                Text("Are you sure you want to delete Invoice #${invoice.billNumber}? This action cannot be undone.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        invoiceViewModel.deleteInvoice(invoice)
+                        invoiceToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { invoiceToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 fun InvoiceCard(
     invoice: Invoice,
     currencyFormat: NumberFormat,
+    onClick: () -> Unit = {},
     onShare: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant

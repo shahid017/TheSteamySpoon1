@@ -1,8 +1,12 @@
 package com.subdue.thesteamyspoon.ui.screens
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,9 +27,15 @@ fun ProductManagementScreen(
     productViewModel: ProductViewModel = viewModel(factory = AppContainer.viewModelFactory),
     onNavigateBack: () -> Unit
 ) {
-    val products by productViewModel.products.collectAsState()
+    val filteredProducts by productViewModel.filteredProducts.collectAsState()
+    val categories by productViewModel.categories.collectAsState()
+    val selectedCategory by productViewModel.selectedCategory.collectAsState()
+    val searchQuery by productViewModel.searchQuery.collectAsState()
+    
     var showAddDialog by remember { mutableStateOf(false) }
     var editingProduct by remember { mutableStateOf<Product?>(null) }
+    var productToDelete by remember { mutableStateOf<Product?>(null) }
+    var expandedCategories by remember { mutableStateOf(false) }
     
     Scaffold(
         topBar = {
@@ -52,7 +62,70 @@ fun ProductManagementScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            if (products.isEmpty()) {
+            // Search Bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { productViewModel.setSearchQuery(it) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text("Search products...") },
+                leadingIcon = {
+                    Icon(Icons.Default.Search, contentDescription = "Search")
+                },
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                )
+            )
+            
+            // Category Filter
+            val allCategories = remember(categories) {
+                val predefinedCategories = listOf(
+                    "Soups",
+                    "Light Cravings",
+                    "Dumplings",
+                    "Samosas",
+                    "Confectionery",
+                    "Hotpots",
+                    "Rice and Gravy",
+                    "Add Ons",
+                    "Beverages"
+                )
+                if (categories.isNotEmpty()) {
+                    (predefinedCategories + categories).distinct().sorted()
+                } else {
+                    predefinedCategories
+                }
+            }
+            
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = selectedCategory == null,
+                    onClick = { productViewModel.setSelectedCategory(null) },
+                    label = { Text("All") }
+                )
+                allCategories.forEach { category ->
+                    FilterChip(
+                        selected = selectedCategory == category,
+                        onClick = { 
+                            productViewModel.setSelectedCategory(
+                                if (selectedCategory == category) null else category
+                            )
+                        },
+                        label = { Text(category) }
+                    )
+                }
+            }
+            
+            if (filteredProducts.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -64,12 +137,18 @@ fun ProductManagementScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(
-                            text = "No products yet",
+                            text = if (searchQuery.isNotBlank() || selectedCategory != null) 
+                                "No products found" 
+                            else 
+                                "No products yet",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Tap the + button to add your first product",
+                            text = if (searchQuery.isNotBlank() || selectedCategory != null)
+                                "Try adjusting your search or filter"
+                            else
+                                "Tap the + button to add your first product",
                             fontSize = 14.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -81,11 +160,11 @@ fun ProductManagementScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(products) { product ->
+                    items(filteredProducts) { product ->
                         ProductManagementCard(
                             product = product,
                             onEdit = { editingProduct = product },
-                            onDelete = { productViewModel.deleteProduct(product) }
+                            onDelete = { productToDelete = product }
                         )
                     }
                 }
@@ -111,6 +190,35 @@ fun ProductManagementScreen(
             onSave = { updatedProduct ->
                 productViewModel.updateProduct(updatedProduct)
                 editingProduct = null
+            }
+        )
+    }
+    
+    // Delete Confirmation Dialog
+    productToDelete?.let { product ->
+        AlertDialog(
+            onDismissRequest = { productToDelete = null },
+            title = { Text("Delete Product") },
+            text = { 
+                Text("Are you sure you want to delete \"${product.name}\"? This action cannot be undone.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        productViewModel.deleteProduct(product)
+                        productToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { productToDelete = null }) {
+                    Text("Cancel")
+                }
             }
         )
     }
@@ -143,6 +251,14 @@ fun ProductManagementCard(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
+                if (product.category.isNotEmpty()) {
+                    Text(
+                        text = product.category,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
                 if (product.description.isNotEmpty()) {
                     Text(
                         text = product.description,
@@ -187,17 +303,35 @@ fun ProductManagementCard(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddEditProductDialog(
     product: Product?,
     onDismiss: () -> Unit,
     onSave: (Product) -> Unit
 ) {
+    val productViewModel: ProductViewModel = viewModel(factory = AppContainer.viewModelFactory)
+    val categories by productViewModel.categories.collectAsState()
+    
     var name by remember { mutableStateOf(product?.name ?: "") }
     var priceText by remember { mutableStateOf(product?.pricePerServing?.toString() ?: "") }
     var defaultServingText by remember { mutableStateOf(product?.defaultServing?.toString() ?: "1") }
     var defaultPiecesText by remember { mutableStateOf(product?.defaultPieces?.toString() ?: "1") }
     var description by remember { mutableStateOf(product?.description ?: "") }
+    var selectedCategory by remember { mutableStateOf(product?.category ?: "") }
+    var expandedCategory by remember { mutableStateOf(false) }
+    
+    val categoryOptions = listOf(
+        "Soups",
+        "Light Cravings",
+        "Dumplings",
+        "Samosas",
+        "Confectionery",
+        "Hotpots",
+        "Rice and Gravy",
+        "Add Ons",
+        "Beverages"
+    )
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -214,6 +348,36 @@ fun AddEditProductDialog(
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
+                
+                ExposedDropdownMenuBox(
+                    expanded = expandedCategory,
+                    onExpandedChange = { expandedCategory = !expandedCategory }
+                ) {
+                    OutlinedTextField(
+                        value = selectedCategory,
+                        onValueChange = { },
+                        readOnly = true,
+                        label = { Text("Category") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedCategory) }
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expandedCategory,
+                        onDismissRequest = { expandedCategory = false }
+                    ) {
+                        categoryOptions.forEach { category ->
+                            DropdownMenuItem(
+                                text = { Text(category) },
+                                onClick = {
+                                    selectedCategory = category
+                                    expandedCategory = false
+                                }
+                            )
+                        }
+                    }
+                }
                 
                 OutlinedTextField(
                     value = description,
@@ -266,13 +430,15 @@ fun AddEditProductDialog(
                             pricePerServing = price,
                             defaultServing = defaultServing,
                             defaultPieces = defaultPieces,
-                            description = description
+                            description = description,
+                            category = selectedCategory
                         ) ?: Product(
                             name = name,
                             pricePerServing = price,
                             defaultServing = defaultServing,
                             defaultPieces = defaultPieces,
-                            description = description
+                            description = description,
+                            category = selectedCategory
                         )
                         onSave(productToSave)
                     }

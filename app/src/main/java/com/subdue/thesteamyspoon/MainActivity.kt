@@ -51,6 +51,10 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate(Screen.ManageProducts.route)
                                     scope.launch { drawerState.close() }
                                 },
+                                onNavigateToSales = {
+                                    navController.navigate(Screen.Sales.route)
+                                    scope.launch { drawerState.close() }
+                                },
                                 onDismiss = { scope.launch { drawerState.close() } }
                             )
                         }

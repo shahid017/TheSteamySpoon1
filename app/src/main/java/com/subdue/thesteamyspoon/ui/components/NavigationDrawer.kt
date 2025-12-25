@@ -11,6 +11,7 @@ fun AppNavigationDrawer(
     currentRoute: String?,
     onNavigateToHome: () -> Unit,
     onNavigateToManageProducts: () -> Unit,
+    onNavigateToSales: () -> Unit,
     onDismiss: () -> Unit
 ) {
     ModalDrawerSheet {
@@ -45,6 +46,18 @@ fun AppNavigationDrawer(
                     onDismiss()
                 },
                 icon = { Text("📦") }
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            NavigationDrawerItem(
+                label = { Text("Sales") },
+                selected = currentRoute == "sales",
+                onClick = {
+                    onNavigateToSales()
+                    onDismiss()
+                },
+                icon = { Text("📊") }
             )
         }
     }

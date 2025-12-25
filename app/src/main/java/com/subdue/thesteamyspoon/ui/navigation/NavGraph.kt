@@ -11,6 +11,7 @@ import com.subdue.thesteamyspoon.ui.screens.CreateInvoiceScreen
 import com.subdue.thesteamyspoon.ui.screens.HomeScreen
 import com.subdue.thesteamyspoon.ui.screens.InvoiceDetailScreen
 import com.subdue.thesteamyspoon.ui.screens.ProductManagementScreen
+import com.subdue.thesteamyspoon.ui.screens.SalesScreen
 import com.subdue.thesteamyspoon.ui.screens.SalesSummaryScreen
 
 sealed class Screen(val route: String) {
@@ -18,6 +19,7 @@ sealed class Screen(val route: String) {
     object CreateInvoice : Screen("create_invoice")
     object ManageProducts : Screen("manage_products")
     object SalesSummary : Screen("sales_summary")
+    object Sales : Screen("sales")
     object InvoiceDetail : Screen("invoice_detail/{invoiceId}") {
         fun createRoute(invoiceId: Long) = "invoice_detail/$invoiceId"
     }
@@ -71,6 +73,14 @@ fun NavGraph(
         
         composable(Screen.SalesSummary.route) {
             SalesSummaryScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        
+        composable(Screen.Sales.route) {
+            SalesScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }

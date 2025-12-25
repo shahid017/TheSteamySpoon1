@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [Product::class, Invoice::class], version = 7, exportSchema = false)
+@Database(entities = [Product::class, Invoice::class], version = 8, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
     abstract fun invoiceDao(): InvoiceDao
@@ -94,6 +94,17 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
         
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                // Replace taxRate and taxAmount with deliveryCharges
+                // Add deliveryCharges column
+                database.execSQL("ALTER TABLE invoices ADD COLUMN deliveryCharges REAL NOT NULL DEFAULT 0.0")
+                // Migrate existing taxAmount to deliveryCharges (if any)
+                database.execSQL("UPDATE invoices SET deliveryCharges = taxAmount WHERE taxAmount > 0")
+                // Note: We keep taxRate and taxAmount columns for backward compatibility but won't use them
+            }
+        }
+        
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -101,7 +112,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "restaurant_database"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .fallbackToDestructiveMigration() // For development - remove in production
                     .build()
                 INSTANCE = instance

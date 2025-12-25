@@ -50,15 +50,14 @@ class InvoiceImageGenerator(private val context: Context) {
         dateTime: String,
         grandTotal: Double,
         subtotal: Double,
-        taxRate: Double,
-        taxAmount: Double,
+        deliveryCharges: Double,
         discount: Double,
         houseNumber: String? = null,
         block: String? = null,
         phoneNumber: String? = null
     ): Bitmap {
         // Calculate dynamic height
-        val height = calculateImageHeight(billItems, subtotal, taxRate, discount, houseNumber, block, phoneNumber)
+        val height = calculateImageHeight(billItems, subtotal, deliveryCharges, discount, houseNumber, block, phoneNumber)
         
         // Create bitmap
         val bitmap = Bitmap.createBitmap(imageWidth, height, Bitmap.Config.ARGB_8888)
@@ -218,11 +217,11 @@ class InvoiceImageGenerator(private val context: Context) {
             yPos += lineSpacing
         }
         
-        // Tax
-        if (taxRate > 0 && taxAmount > 0) {
-            val taxText = "Tax ${taxRate.toInt()}%: ${currencyFormat.format(taxAmount)}"
-            val taxWidth = paint.measureText(taxText)
-            canvas.drawText(taxText, imageWidth - margin - taxWidth, yPos, paint)
+        // Delivery Charges
+        if (deliveryCharges > 0) {
+            val deliveryText = "Delivery Charges: ${currencyFormat.format(deliveryCharges)}"
+            val deliveryWidth = paint.measureText(deliveryText)
+            canvas.drawText(deliveryText, imageWidth - margin - deliveryWidth, yPos, paint)
             yPos += lineSpacing
         }
         
@@ -284,7 +283,7 @@ class InvoiceImageGenerator(private val context: Context) {
     private fun calculateImageHeight(
         billItems: List<BillItem>,
         subtotal: Double,
-        taxRate: Double,
+        deliveryCharges: Double,
         discount: Double,
         houseNumber: String? = null,
         block: String? = null,
@@ -323,7 +322,7 @@ class InvoiceImageGenerator(private val context: Context) {
         // Summary lines
         var summaryLines = 0
         if (subtotal > 0) summaryLines++
-        if (taxRate > 0) summaryLines++
+        if (deliveryCharges > 0) summaryLines++
         if (discount > 0) summaryLines++
         summaryLines += 2 // Total servings and pieces
         height += summaryLines * lineSpacing.toInt()
@@ -391,8 +390,7 @@ class InvoiceImageGenerator(private val context: Context) {
         dateTime: String,
         grandTotal: Double,
         subtotal: Double,
-        taxRate: Double,
-        taxAmount: Double,
+        deliveryCharges: Double,
         discount: Double,
         houseNumber: String? = null,
         block: String? = null,
@@ -404,8 +402,7 @@ class InvoiceImageGenerator(private val context: Context) {
             dateTime = dateTime,
             grandTotal = grandTotal,
             subtotal = subtotal,
-            taxRate = taxRate,
-            taxAmount = taxAmount,
+            deliveryCharges = deliveryCharges,
             discount = discount,
             houseNumber = houseNumber,
             block = block,

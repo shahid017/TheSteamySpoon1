@@ -47,7 +47,7 @@ fun CreateInvoiceScreen(
     val products by productViewModel.products.collectAsState()
     val billItems by billViewModel.billItems.collectAsState()
     val billNumber by billViewModel.billNumber.collectAsState()
-    val taxRate by billViewModel.taxRate.collectAsState()
+    val deliveryCharges by billViewModel.deliveryCharges.collectAsState()
     val discount by billViewModel.discount.collectAsState()
     val houseNumber by billViewModel.houseNumber.collectAsState()
     val block by billViewModel.block.collectAsState()
@@ -71,7 +71,6 @@ fun CreateInvoiceScreen(
     
     val currencyFormat = CurrencyFormatter.getPKRFormatter()
     val subtotal by billViewModel.subtotal.collectAsState()
-    val taxAmount by billViewModel.taxAmount.collectAsState()
     val grandTotal by billViewModel.grandTotal.collectAsState()
     
     Scaffold(
@@ -140,12 +139,11 @@ fun CreateInvoiceScreen(
                 SummarySection(
                     billItems = billItems,
                     subtotal = subtotal,
-                    taxRate = taxRate,
-                    taxAmount = taxAmount,
+                    deliveryCharges = deliveryCharges,
                     discount = discount,
                     grandTotal = grandTotal,
                     onDiscountChange = { billViewModel.setDiscount(it) },
-                    onTaxRateChange = { billViewModel.setTaxRate(it) },
+                    onDeliveryChargesChange = { billViewModel.setDeliveryCharges(it) },
                     currencyFormat = currencyFormat
                 )
             }
@@ -164,8 +162,7 @@ fun CreateInvoiceScreen(
                                 dateTime = dateTime,
                                 grandTotal = grandTotal,
                                 subtotal = subtotal,
-                                taxRate = taxRate,
-                                taxAmount = taxAmount,
+                                deliveryCharges = deliveryCharges,
                                 discount = discount,
                                 houseNumber = houseNumber,
                                 block = block,
@@ -178,8 +175,7 @@ fun CreateInvoiceScreen(
                                 billNumber = billNumber,
                                 dateTime = dateTime,
                                 subtotal = subtotal,
-                                taxRate = taxRate,
-                                taxAmount = taxAmount,
+                                deliveryCharges = deliveryCharges,
                                 discount = discount,
                                 grandTotal = grandTotal,
                                 houseNumber = houseNumber,
@@ -235,10 +231,10 @@ fun CreateInvoiceScreen(
     // Settings Dialog
     if (showSettingsDialog) {
         SettingsDialog(
-            taxRate = taxRate,
+            deliveryCharges = deliveryCharges,
             discount = discount,
             onDismiss = { showSettingsDialog = false },
-            onTaxRateChange = { billViewModel.setTaxRate(it) },
+            onDeliveryChargesChange = { billViewModel.setDeliveryCharges(it) },
             onDiscountChange = { billViewModel.setDiscount(it) },
                     onManageProducts = {
                         showSettingsDialog = false
@@ -680,14 +676,20 @@ fun CustomerInfoSection(
 fun SummarySection(
     billItems: List<BillItem>,
     subtotal: Double,
-    taxRate: Double,
-    taxAmount: Double,
+    deliveryCharges: Double,
     discount: Double,
     grandTotal: Double,
     onDiscountChange: (Double) -> Unit,
-    onTaxRateChange: (Double) -> Unit,
+    onDeliveryChargesChange: (Double) -> Unit,
     currencyFormat: NumberFormat
 ) {
+    var showDeliveryChargesInput by remember { mutableStateOf(false) }
+    var deliveryChargesText by remember { mutableStateOf(deliveryCharges.toString()) }
+    
+    LaunchedEffect(deliveryCharges) {
+        deliveryChargesText = deliveryCharges.toString()
+    }
+    
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -697,12 +699,53 @@ fun SummarySection(
             value = currencyFormat.format(subtotal)
         )
         
-        // Only show tax if tax rate is greater than 0
-        if (taxRate > 0) {
-            SummaryRow(
-                label = "Tax ${taxRate.toInt()}%",
-                value = currencyFormat.format(taxAmount)
+        // Delivery Charges - editable
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Delivery Charges:",
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (showDeliveryChargesInput) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = deliveryChargesText,
+                        onValueChange = { 
+                            if (it.all { char -> char.isDigit() || char == '.' }) {
+                                deliveryChargesText = it
+                                it.toDoubleOrNull()?.let { charges -> onDeliveryChargesChange(charges) }
+                            }
+                        },
+                        modifier = Modifier.width(100.dp),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                    TextButton(onClick = { showDeliveryChargesInput = false }) {
+                        Text("Done")
+                    }
+                }
+            } else {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = currencyFormat.format(deliveryCharges),
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    TextButton(onClick = { showDeliveryChargesInput = true }) {
+                        Text("Edit", fontSize = 12.sp)
+                    }
+                }
+            }
         }
         
         // Only show discount if discount is greater than 0
@@ -927,14 +970,14 @@ fun ProductSelectionCard(
 
 @Composable
 fun SettingsDialog(
-    taxRate: Double,
+    deliveryCharges: Double,
     discount: Double,
     onDismiss: () -> Unit,
-    onTaxRateChange: (Double) -> Unit,
+    onDeliveryChargesChange: (Double) -> Unit,
     onDiscountChange: (Double) -> Unit,
     onManageProducts: () -> Unit
 ) {
-    var taxRateText by remember { mutableStateOf(taxRate.toString()) }
+    var deliveryChargesText by remember { mutableStateOf(deliveryCharges.toString()) }
     var discountText by remember { mutableStateOf(discount.toString()) }
     
     AlertDialog(
@@ -946,16 +989,17 @@ fun SettingsDialog(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 OutlinedTextField(
-                    value = taxRateText,
+                    value = deliveryChargesText,
                     onValueChange = { 
                         if (it.all { char -> char.isDigit() || char == '.' }) {
-                            taxRateText = it
-                            it.toDoubleOrNull()?.let { rate -> onTaxRateChange(rate) }
+                            deliveryChargesText = it
+                            it.toDoubleOrNull()?.let { charges -> onDeliveryChargesChange(charges) }
                         }
                     },
-                    label = { Text("Tax Rate (%)") },
+                    label = { Text("Delivery Charges") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
                 
                 OutlinedTextField(
@@ -968,7 +1012,8 @@ fun SettingsDialog(
                     },
                     label = { Text("Discount Amount") },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
                 
                 Button(

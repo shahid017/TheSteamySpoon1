@@ -36,8 +36,8 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
         }
     }
     
-    private val _taxRate = MutableStateFlow(0.0) // No tax by default
-    val taxRate: StateFlow<Double> = _taxRate.asStateFlow()
+    private val _deliveryCharges = MutableStateFlow(0.0) // No delivery charges by default
+    val deliveryCharges: StateFlow<Double> = _deliveryCharges.asStateFlow()
     
     private val _discount = MutableStateFlow(0.0)
     val discount: StateFlow<Double> = _discount.asStateFlow()
@@ -51,7 +51,7 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
     private val _phoneNumber = MutableStateFlow<String?>(null)
     val phoneNumber: StateFlow<String?> = _phoneNumber.asStateFlow()
     
-    // Derived StateFlows that automatically update when billItems, taxRate, or discount change
+    // Derived StateFlows that automatically update when billItems, deliveryCharges, or discount change
     val subtotal: StateFlow<Double> = _billItems.map { items ->
         items.sumOf { it.totalPrice }
     }.stateIn(
@@ -60,24 +60,16 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
         initialValue = 0.0
     )
     
-    val taxAmount: StateFlow<Double> = combine(subtotal, _taxRate) { sub, rate ->
-        if (rate > 0) sub * (rate / 100.0) else 0.0
+    val grandTotal: StateFlow<Double> = combine(subtotal, _deliveryCharges, _discount) { sub, delivery, disc ->
+        sub + delivery - disc
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = 0.0
     )
     
-    val grandTotal: StateFlow<Double> = combine(subtotal, taxAmount, _discount) { sub, tax, disc ->
-        sub + tax - disc
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = 0.0
-    )
-    
-    fun setTaxRate(rate: Double) {
-        _taxRate.value = rate
+    fun setDeliveryCharges(charges: Double) {
+        _deliveryCharges.value = charges
     }
     
     fun setDiscount(amount: Double) {
@@ -148,6 +140,8 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
     
     fun clearBill() {
         _billItems.value = emptyList()
+        _deliveryCharges.value = 0.0
+        _discount.value = 0.0
         _houseNumber.value = null
         _block.value = null
         _phoneNumber.value = null
@@ -167,8 +161,7 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
         billNumber: Int,
         dateTime: String,
         subtotal: Double,
-        taxRate: Double,
-        taxAmount: Double,
+        deliveryCharges: Double,
         discount: Double,
         grandTotal: Double,
         houseNumber: String? = null,
@@ -196,8 +189,9 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
                     billNumber = billNumber,
                     dateTime = dateTime,
                     subtotal = subtotal,
-                    taxRate = taxRate,
-                    taxAmount = taxAmount,
+                    taxRate = 0.0, // Not used, kept for compatibility
+                    taxAmount = 0.0, // Not used, kept for compatibility
+                    deliveryCharges = deliveryCharges,
                     discount = discount,
                     grandTotal = grandTotal,
                     billItems = billItemData,

@@ -71,8 +71,7 @@ fun InvoiceDetailScreen(
                                     dateTime = inv.dateTime,
                                     grandTotal = inv.grandTotal,
                                     subtotal = inv.subtotal,
-                                    taxRate = inv.taxRate,
-                                    taxAmount = inv.taxAmount,
+                                    deliveryCharges = inv.deliveryCharges,
                                     discount = inv.discount,
                                     houseNumber = inv.houseNumber,
                                     block = inv.block,
@@ -258,17 +257,17 @@ fun InvoiceDetailScreen(
                                 }
                             }
                             
-                            if (currentInvoice.taxRate > 0) {
+                            if (currentInvoice.deliveryCharges > 0) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Text(
-                                        text = "Tax (${currentInvoice.taxRate}%):",
+                                        text = "Delivery Charges:",
                                         fontSize = 16.sp
                                     )
                                     Text(
-                                        text = currencyFormat.format(currentInvoice.taxAmount),
+                                        text = currencyFormat.format(currentInvoice.deliveryCharges),
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Medium
                                     )

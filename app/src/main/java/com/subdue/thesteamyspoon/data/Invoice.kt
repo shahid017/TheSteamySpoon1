@@ -13,8 +13,9 @@ data class Invoice(
     val billNumber: Int,
     val dateTime: String,
     val subtotal: Double,
-    val taxRate: Double,
-    val taxAmount: Double,
+    val taxRate: Double = 0.0, // Kept for backward compatibility, not used
+    val taxAmount: Double = 0.0, // Kept for backward compatibility, not used
+    val deliveryCharges: Double = 0.0,
     val discount: Double,
     val grandTotal: Double,
     val billItems: List<BillItemData>,

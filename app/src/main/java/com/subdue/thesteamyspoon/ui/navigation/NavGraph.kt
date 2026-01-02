@@ -16,7 +16,15 @@ import com.subdue.thesteamyspoon.ui.screens.SalesSummaryScreen
 
 sealed class Screen(val route: String) {
     object Home : Screen("home")
-    object CreateInvoice : Screen("create_invoice")
+    object CreateInvoice : Screen("create_invoice") {
+        fun createRoute(invoiceId: Long? = null): String {
+            return if (invoiceId != null && invoiceId > 0) {
+                "${route}?invoiceId=$invoiceId"
+            } else {
+                route
+            }
+        }
+    }
     object ManageProducts : Screen("manage_products")
     object SalesSummary : Screen("sales_summary")
     object Sales : Screen("sales")
@@ -38,7 +46,7 @@ fun NavGraph(
         composable(Screen.Home.route) {
             HomeScreen(
                 onNavigateToCreateInvoice = {
-                    navController.navigate(Screen.CreateInvoice.route)
+                    navController.navigate(Screen.CreateInvoice.createRoute())
                 },
                 onNavigateToManageProducts = {
                     navController.navigate(Screen.ManageProducts.route)
@@ -52,8 +60,18 @@ fun NavGraph(
             )
         }
         
-        composable(Screen.CreateInvoice.route) {
+        composable(
+            route = "${Screen.CreateInvoice.route}?invoiceId={invoiceId}",
+            arguments = listOf(
+                navArgument("invoiceId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
+            )
+        ) { backStackEntry ->
+            val invoiceId = backStackEntry.arguments?.getLong("invoiceId")?.takeIf { it > 0 }
             CreateInvoiceScreen(
+                invoiceId = invoiceId,
                 onNavigateBack = {
                     navController.popBackStack()
                 },
@@ -98,6 +116,9 @@ fun NavGraph(
                 invoiceId = invoiceId,
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onEditInvoice = { id ->
+                    navController.navigate(Screen.CreateInvoice.createRoute(id))
                 }
             )
         }

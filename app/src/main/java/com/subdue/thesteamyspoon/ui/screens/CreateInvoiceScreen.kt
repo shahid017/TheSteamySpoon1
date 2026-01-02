@@ -39,6 +39,7 @@ import java.text.NumberFormat
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateInvoiceScreen(
+    invoiceId: Long? = null,
     productViewModel: ProductViewModel = viewModel(factory = AppContainer.viewModelFactory),
     billViewModel: BillViewModel = viewModel(factory = AppContainer.viewModelFactory),
     onNavigateBack: () -> Unit,
@@ -54,6 +55,18 @@ fun CreateInvoiceScreen(
     val phoneNumber by billViewModel.phoneNumber.collectAsState()
     val context = LocalContext.current
     
+    val editingInvoiceId by billViewModel.editingInvoiceId.collectAsState()
+    val editingInvoiceDateTime by billViewModel.editingInvoiceDateTime.collectAsState()
+    val isEditing = editingInvoiceId != null
+    
+    LaunchedEffect(invoiceId) {
+        if (invoiceId != null) {
+            billViewModel.loadInvoiceForEditing(invoiceId)
+        } else {
+            billViewModel.clearBill()
+        }
+    }
+
     var showAddItemsDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     
@@ -150,54 +163,54 @@ fun CreateInvoiceScreen(
             
             // Generate Invoice Button
             item {
-                    Button(
-                        onClick = {
-                            val dateTime = billViewModel.getBillDate()
-                            
-                            // Generate invoice image (PNG) using Bitmap + Canvas
-                            val imageGenerator = InvoiceImageGenerator(context)
-                            val imageUri = imageGenerator.generateAndShareInvoice(
-                                billItems = billItems,
-                                billNumber = billNumber,
-                                dateTime = dateTime,
-                                grandTotal = grandTotal,
-                                subtotal = subtotal,
-                                deliveryCharges = deliveryCharges,
-                                discount = discount,
-                                houseNumber = houseNumber,
-                                block = block,
-                                phoneNumber = phoneNumber
-                            )
-                            
-                            // Save invoice to database
-                            billViewModel.saveInvoice(
-                                billItems = billItems,
-                                billNumber = billNumber,
-                                dateTime = dateTime,
-                                subtotal = subtotal,
-                                deliveryCharges = deliveryCharges,
-                                discount = discount,
-                                grandTotal = grandTotal,
-                                houseNumber = houseNumber,
-                                block = block,
-                                phoneNumber = phoneNumber,
-                                onSuccess = {
-                                    // Clear bill and navigate back after successful save
-                                    billViewModel.clearBill()
-                                    onInvoiceGenerated()
-                                }
-                            )
-                            
-                            imageUri?.let { uri ->
-                                val shareIntent = Intent().apply {
-                                    action = Intent.ACTION_SEND
-                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                    type = "image/png"
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(Intent.createChooser(shareIntent, "Share Invoice"))
+                val dateTime = editingInvoiceDateTime ?: billViewModel.getBillDate()
+                val buttonLabel = if (isEditing) "Update Invoice" else "Generate Invoice"
+
+                Button(
+                    onClick = {
+                        val imageGenerator = InvoiceImageGenerator(context)
+                        val imageUri = imageGenerator.generateAndShareInvoice(
+                            billItems = billItems,
+                            billNumber = billNumber,
+                            dateTime = dateTime,
+                            grandTotal = grandTotal,
+                            subtotal = subtotal,
+                            deliveryCharges = deliveryCharges,
+                            discount = discount,
+                            houseNumber = houseNumber,
+                            block = block,
+                            phoneNumber = phoneNumber
+                        )
+
+                        billViewModel.saveInvoice(
+                            billItems = billItems,
+                            billNumber = billNumber,
+                            dateTime = dateTime,
+                            subtotal = subtotal,
+                            deliveryCharges = deliveryCharges,
+                            discount = discount,
+                            grandTotal = grandTotal,
+                            houseNumber = houseNumber,
+                            block = block,
+                            phoneNumber = phoneNumber,
+                            editingInvoiceId = editingInvoiceId,
+                            context = context,
+                            onSuccess = {
+                                billViewModel.clearBill()
+                                onInvoiceGenerated()
                             }
-                        },
+                        )
+
+                        imageUri?.let { uri ->
+                            val shareIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                type = "image/png"
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(Intent.createChooser(shareIntent, "Share Invoice"))
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
@@ -207,7 +220,7 @@ fun CreateInvoiceScreen(
                     )
                 ) {
                     Text(
-                        "Generate Invoice",
+                        buttonLabel,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )

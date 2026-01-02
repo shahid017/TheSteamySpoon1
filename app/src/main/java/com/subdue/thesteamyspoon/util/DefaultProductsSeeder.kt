@@ -20,9 +20,9 @@ class DefaultProductsSeeder(private val productRepository: ProductRepository) {
     
     suspend fun seedDefaultProductsSync() {
         val defaultProducts = getDefaultProducts()
-        // Insert or update products - check by name to avoid duplicates
+        // Only insert products that don't exist - preserve user modifications
         defaultProducts.forEach { product ->
-            productRepository.insertOrUpdateProduct(product)
+            productRepository.insertIfNotExists(product)
         }
     }
     

@@ -26,7 +26,8 @@ import java.text.NumberFormat
 fun InvoiceDetailScreen(
     invoiceId: Long,
     invoiceViewModel: InvoiceViewModel = viewModel(factory = AppContainer.viewModelFactory),
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onEditInvoice: (Long) -> Unit
 ) {
     var invoice by remember { mutableStateOf<Invoice?>(null) }
     val context = LocalContext.current
@@ -47,6 +48,9 @@ fun InvoiceDetailScreen(
                 },
                 actions = {
                     invoice?.let { inv ->
+                        TextButton(onClick = { onEditInvoice(inv.id) }) {
+                            Text("Edit", fontSize = 16.sp)
+                        }
                         IconButton(
                             onClick = {
                                 val imageGenerator = InvoiceImageGenerator(context)

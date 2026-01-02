@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
+import com.subdue.thesteamyspoon.data.DatabaseBackupManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -25,15 +26,15 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
     
     private val _billNumber = MutableStateFlow(1)
     val billNumber: StateFlow<Int> = _billNumber.asStateFlow()
+
+    private val _editingInvoiceId = MutableStateFlow<Long?>(null)
+    val editingInvoiceId: StateFlow<Long?> = _editingInvoiceId.asStateFlow()
+
+    private val _editingInvoiceDateTime = MutableStateFlow<String?>(null)
+    val editingInvoiceDateTime: StateFlow<String?> = _editingInvoiceDateTime.asStateFlow()
     
     init {
-        // Initialize bill number from database
-        invoiceRepository?.let { repository ->
-            viewModelScope.launch {
-                val maxBillNumber = repository.getMaxBillNumber()
-                _billNumber.value = maxBillNumber + 1
-            }
-        }
+        refreshBillNumber()
     }
     
     private val _deliveryCharges = MutableStateFlow(0.0) // No delivery charges by default
@@ -145,9 +146,11 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
         _houseNumber.value = null
         _block.value = null
         _phoneNumber.value = null
+        _editingInvoiceId.value = null
+        _editingInvoiceDateTime.value = null
     }
     
-    fun incrementBillNumber() {
+    private fun incrementBillNumber() {
         _billNumber.value = _billNumber.value + 1
     }
     
@@ -167,6 +170,8 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
         houseNumber: String? = null,
         block: String? = null,
         phoneNumber: String? = null,
+        editingInvoiceId: Long? = null,
+        context: android.content.Context? = null,
         onSuccess: () -> Unit = {}
     ) {
         invoiceRepository?.let { repository ->
@@ -186,6 +191,7 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
                 }
                 
                 val invoice = Invoice(
+                    id = editingInvoiceId ?: 0L,
                     billNumber = billNumber,
                     dateTime = dateTime,
                     subtotal = subtotal,
@@ -201,15 +207,66 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
                 )
                 
                 repository.insertInvoice(invoice)
-                // Increment bill number after successful save
-                incrementBillNumber()
+                if (editingInvoiceId == null) {
+                    incrementBillNumber()
+                } else {
+                    _editingInvoiceId.value = null
+                    _editingInvoiceDateTime.value = null
+                    refreshBillNumber()
+                }
+                // Create backup after successful save
+                context?.let {
+                    DatabaseBackupManager.backupDatabase(it)
+                }
                 onSuccess()
             }
         } ?: run {
             // If no repository, still increment for consistency
-            incrementBillNumber()
             onSuccess()
         }
+    }
+
+    fun loadInvoiceForEditing(invoiceId: Long) {
+        invoiceRepository?.let { repository ->
+            viewModelScope.launch {
+                val invoice = repository.getInvoiceById(invoiceId) ?: return@launch
+                _editingInvoiceId.value = invoice.id
+                _editingInvoiceDateTime.value = invoice.dateTime
+                _billNumber.value = invoice.billNumber
+                _deliveryCharges.value = invoice.deliveryCharges
+                _discount.value = invoice.discount
+                _houseNumber.value = invoice.houseNumber
+                _block.value = invoice.block
+                _phoneNumber.value = invoice.phoneNumber
+                _billItems.value = invoice.billItems.map { convertToBillItem(it) }
+            }
+        }
+    }
+
+    private fun refreshBillNumber() {
+        invoiceRepository?.let { repository ->
+            viewModelScope.launch {
+                val maxBillNumber = repository.getMaxBillNumber()
+                _billNumber.value = maxBillNumber + 1
+            }
+        }
+    }
+
+    private fun convertToBillItem(data: BillItemData): BillItem {
+        val product = Product(
+            id = data.productId,
+            name = data.productName,
+            pricePerServing = data.pricePerServing,
+            defaultServing = data.defaultServing,
+            defaultPieces = data.defaultPieces,
+            description = data.productDescription,
+            category = ""
+        )
+        return BillItem(
+            product = product,
+            quantity = data.quantity,
+            addOns = data.addOns
+        )
     }
 }
 

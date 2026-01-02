@@ -3,5 +3,8 @@
     <cache-path name="bills" path="bills/" />
     <cache-path name="invoices" path="invoices/" />
     <cache-path name="invoice_images" path="invoice_images/" />
+    <external-path name="documents" path="Documents/" />
+    <external-path name="database" path="Documents/TheSteamySpoon/database/" />
+    <external-path name="backups" path="Documents/TheSteamySpoon/backups/" />
 </paths>
 

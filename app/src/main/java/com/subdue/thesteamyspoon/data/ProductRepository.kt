@@ -31,9 +31,19 @@ class ProductRepository(private val productDao: ProductDao) {
         }
     }
     
+    suspend fun insertIfNotExists(product: Product) {
+        val existing = getProductByName(product.name)
+        if (existing == null) {
+            productDao.insertProduct(product)
+        }
+        // Don't update if exists - preserve user changes
+    }
+    
     suspend fun updateProduct(product: Product) = productDao.updateProduct(product)
     
     suspend fun deleteProduct(product: Product) = productDao.deleteProduct(product)
+
+    suspend fun deleteProductsWithoutCategory(): Int = productDao.deleteProductsWithoutCategory()
 }
 
 

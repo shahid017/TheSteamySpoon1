@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import java.io.File
 
 @Database(entities = [Product::class, Invoice::class], version = 8, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
@@ -107,16 +108,61 @@ abstract class AppDatabase : RoomDatabase() {
         
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
+                val dbDir = getDatabaseDirectory(context)
+                val dbFile = File(dbDir, "restaurant_database")
+
+                migrateDatabaseIfNeeded(context, dbFile)
+
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "restaurant_database"
+                    dbFile.absolutePath
                 )
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
-                    .fallbackToDestructiveMigration() // For development - remove in production
                     .build()
                 INSTANCE = instance
                 instance
+            }
+        }
+
+        private fun getDatabaseDirectory(context: Context): File {
+            val externalDir = context.getExternalFilesDir("TheSteamySpoon/database")
+            val dbDir = externalDir ?: File(context.filesDir, "TheSteamySpoon/database")
+            if (!dbDir.exists()) {
+                dbDir.mkdirs()
+            }
+            return dbDir
+        }
+
+        private fun migrateDatabaseIfNeeded(context: Context, newDbFile: File) {
+            try {
+                if (newDbFile.exists()) {
+                    return
+                }
+
+                val oldDbDir = File(context.applicationInfo.dataDir, "databases")
+                val oldDbFile = File(oldDbDir, "restaurant_database")
+
+                if (!oldDbFile.exists() || !oldDbFile.canRead()) {
+                    return
+                }
+
+                val oldWalFile = File(oldDbDir, "restaurant_database-wal")
+                val oldShmFile = File(oldDbDir, "restaurant_database-shm")
+
+                oldDbFile.copyTo(newDbFile, overwrite = false)
+
+                if (oldWalFile.exists() && oldWalFile.canRead()) {
+                    val newWalFile = File(newDbFile.parent, "${newDbFile.name}-wal")
+                    oldWalFile.copyTo(newWalFile, overwrite = false)
+                }
+
+                if (oldShmFile.exists() && oldShmFile.canRead()) {
+                    val newShmFile = File(newDbFile.parent, "${newDbFile.name}-shm")
+                    oldShmFile.copyTo(newShmFile, overwrite = false)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }

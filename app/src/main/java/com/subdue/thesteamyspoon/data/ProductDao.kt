@@ -1,3 +1,4 @@
+
 package com.subdue.thesteamyspoon.data
 
 import androidx.room.Dao
@@ -42,5 +43,8 @@ interface ProductDao {
     
     @Delete
     suspend fun deleteProduct(product: Product)
+
+    @Query("DELETE FROM products WHERE category IS NULL OR TRIM(category) = ''")
+    suspend fun deleteProductsWithoutCategory(): Int
 }
 

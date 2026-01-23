@@ -34,6 +34,7 @@ import com.subdue.thesteamyspoon.util.InvoiceImageGenerator
 import com.subdue.thesteamyspoon.util.InvoicePdfGenerator
 import com.subdue.thesteamyspoon.viewmodel.BillViewModel
 import com.subdue.thesteamyspoon.viewmodel.ProductViewModel
+import com.subdue.thesteamyspoon.data.PreferenceManager
 import java.text.NumberFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,6 +54,7 @@ fun CreateInvoiceScreen(
     val houseNumber by billViewModel.houseNumber.collectAsState()
     val block by billViewModel.block.collectAsState()
     val phoneNumber by billViewModel.phoneNumber.collectAsState()
+    val town by billViewModel.town.collectAsState()
     val context = LocalContext.current
     
     val editingInvoiceId by billViewModel.editingInvoiceId.collectAsState()
@@ -70,17 +72,9 @@ fun CreateInvoiceScreen(
     var showAddItemsDialog by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     
-    val blocks = listOf(
-        "Shaheen Block",
-        "Mehran Block",
-        "Nishat Block",
-        "Khyber Block",
-        "Punjab Block",
-        "Bolan Block",
-        "Jehlum Block",
-        "Kashmir Block",
-        "Rachna Block"
-    )
+    // Load blocks and towns from preferences - use state so they update when new ones are added
+    var blocks by remember { mutableStateOf(PreferenceManager.getBlocks(context)) }
+    var towns by remember { mutableStateOf(PreferenceManager.getTowns(context)) }
     
     val currencyFormat = CurrencyFormatter.getPKRFormatter()
     val subtotal by billViewModel.subtotal.collectAsState()
@@ -140,10 +134,21 @@ fun CreateInvoiceScreen(
                     houseNumber = houseNumber ?: "",
                     block = block ?: "",
                     phoneNumber = phoneNumber ?: "",
+                    town = town ?: "",
                     blocks = blocks,
+                    towns = towns,
                     onHouseNumberChange = { billViewModel.setHouseNumber(it.ifBlank { null }) },
                     onBlockChange = { billViewModel.setBlock(it.ifBlank { null }) },
-                    onPhoneNumberChange = { billViewModel.setPhoneNumber(it.ifBlank { null }) }
+                    onPhoneNumberChange = { billViewModel.setPhoneNumber(it.ifBlank { null }) },
+                    onTownChange = { billViewModel.setTown(it.ifBlank { null }) },
+                    onAddBlock = { newBlock ->
+                        PreferenceManager.addBlock(context, newBlock)
+                        blocks = PreferenceManager.getBlocks(context)
+                    },
+                    onAddTown = { newTown ->
+                        PreferenceManager.addTown(context, newTown)
+                        towns = PreferenceManager.getTowns(context)
+                    }
                 )
             }
             
@@ -179,7 +184,8 @@ fun CreateInvoiceScreen(
                             discount = discount,
                             houseNumber = houseNumber,
                             block = block,
-                            phoneNumber = phoneNumber
+                            phoneNumber = phoneNumber,
+                            town = town
                         )
 
                         billViewModel.saveInvoice(
@@ -193,6 +199,7 @@ fun CreateInvoiceScreen(
                             houseNumber = houseNumber,
                             block = block,
                             phoneNumber = phoneNumber,
+                            town = town,
                             editingInvoiceId = editingInvoiceId,
                             context = context,
                             onSuccess = {
@@ -598,11 +605,20 @@ fun CustomerInfoSection(
     houseNumber: String,
     block: String,
     phoneNumber: String,
+    town: String,
     blocks: List<String>,
+    towns: List<String>,
     onHouseNumberChange: (String) -> Unit,
     onBlockChange: (String) -> Unit,
-    onPhoneNumberChange: (String) -> Unit
+    onPhoneNumberChange: (String) -> Unit,
+    onTownChange: (String) -> Unit,
+    onAddBlock: (String) -> Unit,
+    onAddTown: (String) -> Unit
 ) {
+    var showAddBlockDialog by remember { mutableStateOf(false) }
+    var showAddTownDialog by remember { mutableStateOf(false) }
+    var blockExpanded by remember { mutableStateOf(false) }
+    var townExpanded by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -634,10 +650,9 @@ fun CustomerInfoSection(
             )
             
             // Block Dropdown
-            var expanded by remember { mutableStateOf(false) }
             ExposedDropdownMenuBox(
-                expanded = expanded,
-                onExpandedChange = { expanded = !expanded },
+                expanded = blockExpanded,
+                onExpandedChange = { blockExpanded = !blockExpanded },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 OutlinedTextField(
@@ -647,25 +662,76 @@ fun CustomerInfoSection(
                     label = { Text("Block") },
                     placeholder = { Text("Select block") },
                     trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = blockExpanded)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .menuAnchor()
                 )
                 ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
+                    expanded = blockExpanded,
+                    onDismissRequest = { blockExpanded = false }
                 ) {
                     blocks.forEach { blockOption ->
                         DropdownMenuItem(
                             text = { Text(blockOption) },
                             onClick = {
                                 onBlockChange(blockOption)
-                                expanded = false
+                                blockExpanded = false
                             }
                         )
                     }
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text("+ Add New Block") },
+                        onClick = {
+                            blockExpanded = false
+                            showAddBlockDialog = true
+                        }
+                    )
+                }
+            }
+            
+            // Town Dropdown
+            ExposedDropdownMenuBox(
+                expanded = townExpanded,
+                onExpandedChange = { townExpanded = !townExpanded },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = town,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Town") },
+                    placeholder = { Text("Select town") },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = townExpanded)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor()
+                )
+                ExposedDropdownMenu(
+                    expanded = townExpanded,
+                    onDismissRequest = { townExpanded = false }
+                ) {
+                    towns.forEach { townOption ->
+                        DropdownMenuItem(
+                            text = { Text(townOption) },
+                            onClick = {
+                                onTownChange(townOption)
+                                townExpanded = false
+                            }
+                        )
+                    }
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = { Text("+ Add New Town") },
+                        onClick = {
+                            townExpanded = false
+                            showAddTownDialog = true
+                        }
+                    )
                 }
             }
             
@@ -683,6 +749,106 @@ fun CustomerInfoSection(
             )
         }
     }
+    
+    // Add Block Dialog
+    if (showAddBlockDialog) {
+        AddBlockDialog(
+            onDismiss = { showAddBlockDialog = false },
+            onConfirm = { newBlock ->
+                if (newBlock.isNotBlank()) {
+                    onAddBlock(newBlock.trim())
+                    onBlockChange(newBlock.trim())
+                }
+                showAddBlockDialog = false
+            }
+        )
+    }
+    
+    // Add Town Dialog
+    if (showAddTownDialog) {
+        AddTownDialog(
+            onDismiss = { showAddTownDialog = false },
+            onConfirm = { newTown ->
+                if (newTown.isNotBlank()) {
+                    onAddTown(newTown.trim())
+                    onTownChange(newTown.trim())
+                }
+                showAddTownDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+fun AddBlockDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var blockName by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add New Block") },
+        text = {
+            OutlinedTextField(
+                value = blockName,
+                onValueChange = { blockName = it },
+                label = { Text("Block Name") },
+                placeholder = { Text("Enter block name") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(blockName) },
+                enabled = blockName.isNotBlank()
+            ) {
+                Text("Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun AddTownDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var townName by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add New Town") },
+        text = {
+            OutlinedTextField(
+                value = townName,
+                onValueChange = { townName = it },
+                label = { Text("Town Name") },
+                placeholder = { Text("Enter town name") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(townName) },
+                enabled = townName.isNotBlank()
+            ) {
+                Text("Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
@@ -698,9 +864,15 @@ fun SummarySection(
 ) {
     var showDeliveryChargesInput by remember { mutableStateOf(false) }
     var deliveryChargesText by remember { mutableStateOf(deliveryCharges.toString()) }
+    var showDiscountInput by remember { mutableStateOf(false) }
+    var discountText by remember { mutableStateOf(discount.toString()) }
     
     LaunchedEffect(deliveryCharges) {
         deliveryChargesText = deliveryCharges.toString()
+    }
+    
+    LaunchedEffect(discount) {
+        discountText = discount.toString()
     }
     
     Column(
@@ -761,12 +933,53 @@ fun SummarySection(
             }
         }
         
-        // Only show discount if discount is greater than 0
-        if (discount > 0) {
-            SummaryRow(
-                label = "Discount",
-                value = currencyFormat.format(discount)
+        // Discount - editable (always visible)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Discount:",
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            if (showDiscountInput) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = discountText,
+                        onValueChange = { 
+                            if (it.all { char -> char.isDigit() || char == '.' }) {
+                                discountText = it
+                                it.toDoubleOrNull()?.let { disc -> onDiscountChange(disc) }
+                            }
+                        },
+                        modifier = Modifier.width(100.dp),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                    TextButton(onClick = { showDiscountInput = false }) {
+                        Text("Done")
+                    }
+                }
+            } else {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = currencyFormat.format(discount),
+                        fontSize = 16.sp,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    TextButton(onClick = { showDiscountInput = true }) {
+                        Text("Edit", fontSize = 12.sp)
+                    }
+                }
+            }
         }
         
         // Calculate and show total servings and pieces

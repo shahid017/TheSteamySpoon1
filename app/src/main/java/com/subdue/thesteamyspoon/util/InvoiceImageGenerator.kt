@@ -54,10 +54,11 @@ class InvoiceImageGenerator(private val context: Context) {
         discount: Double,
         houseNumber: String? = null,
         block: String? = null,
-        phoneNumber: String? = null
+        phoneNumber: String? = null,
+        town: String? = null
     ): Bitmap {
         // Calculate dynamic height
-        val height = calculateImageHeight(billItems, subtotal, deliveryCharges, discount, houseNumber, block, phoneNumber)
+        val height = calculateImageHeight(billItems, subtotal, deliveryCharges, discount, houseNumber, block, phoneNumber, town)
         
         // Create bitmap
         val bitmap = Bitmap.createBitmap(imageWidth, height, Bitmap.Config.ARGB_8888)
@@ -99,9 +100,13 @@ class InvoiceImageGenerator(private val context: Context) {
         yPos += lineSpacing
         
         // Customer Info (if provided)
-        if (!houseNumber.isNullOrBlank() || !block.isNullOrBlank() || !phoneNumber.isNullOrBlank()) {
+        if (!houseNumber.isNullOrBlank() || !block.isNullOrBlank() || !phoneNumber.isNullOrBlank() || !town.isNullOrBlank()) {
             val customerInfo = buildString {
+                if (!town.isNullOrBlank()) {
+                    append(town)
+                }
                 if (!block.isNullOrBlank()) {
+                    if (isNotEmpty()) append(", ")
                     append(block)
                 }
                 if (!houseNumber.isNullOrBlank()) {
@@ -287,7 +292,8 @@ class InvoiceImageGenerator(private val context: Context) {
         discount: Double,
         houseNumber: String? = null,
         block: String? = null,
-        phoneNumber: String? = null
+        phoneNumber: String? = null,
+        town: String? = null
     ): Int {
         var height = padding.toInt() // Top padding
         
@@ -298,7 +304,7 @@ class InvoiceImageGenerator(private val context: Context) {
         height += normalFontSize.toInt() * 2 + lineSpacing.toInt()
         
         // Customer info (if provided)
-        if (!houseNumber.isNullOrBlank() || !block.isNullOrBlank()) {
+        if (!houseNumber.isNullOrBlank() || !block.isNullOrBlank() || !town.isNullOrBlank()) {
             height += normalFontSize.toInt() + lineSpacing.toInt()
         }
         if (!phoneNumber.isNullOrBlank()) {
@@ -394,7 +400,8 @@ class InvoiceImageGenerator(private val context: Context) {
         discount: Double,
         houseNumber: String? = null,
         block: String? = null,
-        phoneNumber: String? = null
+        phoneNumber: String? = null,
+        town: String? = null
     ): Uri? {
         val bitmap = generateInvoiceBitmap(
             billItems = billItems,
@@ -406,7 +413,8 @@ class InvoiceImageGenerator(private val context: Context) {
             discount = discount,
             houseNumber = houseNumber,
             block = block,
-            phoneNumber = phoneNumber
+            phoneNumber = phoneNumber,
+            town = town
         )
         
         val file = saveInvoiceImage(bitmap, billNumber) ?: return null

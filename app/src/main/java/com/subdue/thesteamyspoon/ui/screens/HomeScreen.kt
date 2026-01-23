@@ -159,7 +159,8 @@ fun HomeScreen(
                                     discount = invoice.discount,
                                     houseNumber = invoice.houseNumber,
                                     block = invoice.block,
-                                    phoneNumber = invoice.phoneNumber
+                                    phoneNumber = invoice.phoneNumber,
+                                    town = invoice.town
                                 )
                                 
                                 imageUri?.let { uri ->

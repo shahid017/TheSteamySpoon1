@@ -33,12 +33,10 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
     private val _editingInvoiceDateTime = MutableStateFlow<String?>(null)
     val editingInvoiceDateTime: StateFlow<String?> = _editingInvoiceDateTime.asStateFlow()
     
-    init {
-        refreshBillNumber()
-    }
-    
     private val _deliveryCharges = MutableStateFlow(0.0) // No delivery charges by default
     val deliveryCharges: StateFlow<Double> = _deliveryCharges.asStateFlow()
+    
+    private var _isDeliveryChargesManuallySet = false // Track if user manually edited delivery charges
     
     private val _discount = MutableStateFlow(0.0)
     val discount: StateFlow<Double> = _discount.asStateFlow()
@@ -51,6 +49,9 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
     
     private val _phoneNumber = MutableStateFlow<String?>(null)
     val phoneNumber: StateFlow<String?> = _phoneNumber.asStateFlow()
+    
+    private val _town = MutableStateFlow<String?>(null)
+    val town: StateFlow<String?> = _town.asStateFlow()
     
     // Derived StateFlows that automatically update when billItems, deliveryCharges, or discount change
     val subtotal: StateFlow<Double> = _billItems.map { items ->
@@ -69,8 +70,35 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
         initialValue = 0.0
     )
     
+    init {
+        refreshBillNumber()
+        
+        // Auto-set delivery charges based on subtotal and town
+        viewModelScope.launch {
+            combine(subtotal, _town) { sub, town ->
+                // If town is Bahria Orchard, keep delivery charges at 100 (handled by setTown)
+                if (town == "Bahria Orchard") {
+                    return@combine
+                }
+                // Only auto-update if not manually set
+                if (!_isDeliveryChargesManuallySet) {
+                    val currentCharges = _deliveryCharges.value
+                    when {
+                        sub > 0 && sub < 500 && currentCharges != 100.0 -> {
+                            _deliveryCharges.value = 100.0
+                        }
+                        sub >= 500 && currentCharges == 100.0 -> {
+                            _deliveryCharges.value = 0.0
+                        }
+                    }
+                }
+            }.collect {}
+        }
+    }
+    
     fun setDeliveryCharges(charges: Double) {
         _deliveryCharges.value = charges
+        _isDeliveryChargesManuallySet = true // Mark as manually set
     }
     
     fun setDiscount(amount: Double) {
@@ -87,6 +115,27 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
     
     fun setPhoneNumber(phoneNumber: String?) {
         _phoneNumber.value = phoneNumber
+    }
+    
+    fun setTown(town: String?) {
+        _town.value = town
+        // Auto-set delivery charges to 100 if Bahria Orchard is selected
+        if (town == "Bahria Orchard") {
+            _deliveryCharges.value = 100.0
+            _isDeliveryChargesManuallySet = false // Allow auto-updates for town-based charges
+        } else {
+            // Reset manual flag when town changes (unless manually set)
+            // This allows subtotal-based auto-updates to work again
+            if (!_isDeliveryChargesManuallySet) {
+                // Check if we should auto-set based on subtotal
+                val currentSubtotal = subtotal.value
+                if (currentSubtotal > 0 && currentSubtotal < 500) {
+                    _deliveryCharges.value = 100.0
+                } else if (currentSubtotal >= 500) {
+                    _deliveryCharges.value = 0.0
+                }
+            }
+        }
     }
     
     fun addProductToBill(product: Product) {
@@ -146,8 +195,10 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
         _houseNumber.value = null
         _block.value = null
         _phoneNumber.value = null
+        _town.value = null
         _editingInvoiceId.value = null
         _editingInvoiceDateTime.value = null
+        _isDeliveryChargesManuallySet = false // Reset manual flag
     }
     
     private fun incrementBillNumber() {
@@ -170,6 +221,7 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
         houseNumber: String? = null,
         block: String? = null,
         phoneNumber: String? = null,
+        town: String? = null,
         editingInvoiceId: Long? = null,
         context: android.content.Context? = null,
         onSuccess: () -> Unit = {}
@@ -203,7 +255,8 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
                     billItems = billItemData,
                     houseNumber = houseNumber,
                     block = block,
-                    phoneNumber = phoneNumber
+                    phoneNumber = phoneNumber,
+                    town = town
                 )
                 
                 repository.insertInvoice(invoice)
@@ -233,11 +286,18 @@ class BillViewModel(private val invoiceRepository: InvoiceRepository? = null) : 
                 _editingInvoiceId.value = invoice.id
                 _editingInvoiceDateTime.value = invoice.dateTime
                 _billNumber.value = invoice.billNumber
-                _deliveryCharges.value = invoice.deliveryCharges
                 _discount.value = invoice.discount
                 _houseNumber.value = invoice.houseNumber
                 _block.value = invoice.block
                 _phoneNumber.value = invoice.phoneNumber
+                _town.value = invoice.town
+                // Set delivery charges - if town is Bahria Orchard and charges are 0, set to 100
+                // Otherwise use the saved charges (user may have manually changed it)
+                _deliveryCharges.value = if (invoice.town == "Bahria Orchard" && invoice.deliveryCharges == 0.0) {
+                    100.0
+                } else {
+                    invoice.deliveryCharges
+                }
                 _billItems.value = invoice.billItems.map { convertToBillItem(it) }
             }
         }

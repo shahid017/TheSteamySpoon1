@@ -79,7 +79,8 @@ fun InvoiceDetailScreen(
                                     discount = inv.discount,
                                     houseNumber = inv.houseNumber,
                                     block = inv.block,
-                                    phoneNumber = inv.phoneNumber
+                                    phoneNumber = inv.phoneNumber,
+                                    town = inv.town
                                 )
                                 
                                 imageUri?.let { uri ->
@@ -149,7 +150,7 @@ fun InvoiceDetailScreen(
                 }
                 
                 // Customer Information (if available)
-                if (currentInvoice.houseNumber != null || currentInvoice.block != null || currentInvoice.phoneNumber != null) {
+                if (currentInvoice.houseNumber != null || currentInvoice.block != null || currentInvoice.phoneNumber != null || currentInvoice.town != null) {
                     item {
                         Card(
                             modifier = Modifier.fillMaxWidth(),
@@ -169,15 +170,21 @@ fun InvoiceDetailScreen(
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                if (currentInvoice.houseNumber != null) {
+                                if (currentInvoice.town != null) {
                                     Text(
-                                        text = "House: ${currentInvoice.houseNumber}",
+                                        text = "Town: ${currentInvoice.town}",
                                         fontSize = 14.sp
                                     )
                                 }
                                 if (currentInvoice.block != null) {
                                     Text(
                                         text = "Block: ${currentInvoice.block}",
+                                        fontSize = 14.sp
+                                    )
+                                }
+                                if (currentInvoice.houseNumber != null) {
+                                    Text(
+                                        text = "House: ${currentInvoice.houseNumber}",
                                         fontSize = 14.sp
                                     )
                                 }

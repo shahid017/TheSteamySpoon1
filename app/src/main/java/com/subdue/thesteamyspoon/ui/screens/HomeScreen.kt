@@ -31,6 +31,7 @@ fun HomeScreen(
     onNavigateToCreateInvoice: () -> Unit,
     onNavigateToManageProducts: () -> Unit,
     onNavigateToSalesSummary: () -> Unit,
+    onNavigateToSalesAnalytics: () -> Unit,
     onNavigateToInvoiceDetail: (Long) -> Unit = {}
 ) {
     val invoices by invoiceViewModel.invoices.collectAsState()
@@ -85,6 +86,23 @@ fun HomeScreen(
                 ) {
                     Text(
                         "View Sales Summary",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = onNavigateToSalesAnalytics,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    Text(
+                        "Sales Analytics",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(vertical = 8.dp)

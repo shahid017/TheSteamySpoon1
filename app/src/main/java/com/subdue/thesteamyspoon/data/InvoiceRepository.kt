@@ -3,6 +3,7 @@ package com.subdue.thesteamyspoon.data
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -28,10 +29,51 @@ data class DailyItemSales(
     val sales: Double
 )
 
+data class WeekdaySalesPoint(
+    val weekday: String, // Sunday ... Saturday
+    val totalSales: Double
+)
+
 class InvoiceRepository(private val invoiceDao: InvoiceDao) {
     fun getRecentInvoices(limit: Int = 50): Flow<List<Invoice>> = invoiceDao.getRecentInvoices(limit)
     
     fun getAllInvoices(): Flow<List<Invoice>> = invoiceDao.getAllInvoices()
+
+    /**
+     * Cumulative (summed) sales grouped by weekday across a selected time period.
+     *
+     * @param periodDays null = all time, otherwise only include invoices whose date is within the last [periodDays].
+     */
+    fun getCumulativeSalesByWeekday(periodDays: Int? = null): Flow<List<WeekdaySalesPoint>> {
+        return getAllInvoices().map { invoices ->
+            val dateTimeFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
+            val cal = Calendar.getInstance()
+
+            val cutoffMillis = periodDays?.let {
+                Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -it) }.timeInMillis
+            }
+
+            val totals = DoubleArray(7) { 0.0 } // 0=Sun ... 6=Sat
+
+            invoices.forEach { invoice ->
+                val millis = try {
+                    dateTimeFormat.parse(invoice.dateTime)?.time
+                } catch (_: Exception) {
+                    null
+                } ?: return@forEach
+
+                if (cutoffMillis != null && millis < cutoffMillis) return@forEach
+
+                cal.timeInMillis = millis
+                val dow = cal.get(Calendar.DAY_OF_WEEK) // 1=Sun ... 7=Sat
+                val idx = (dow - Calendar.SUNDAY).coerceIn(0, 6)
+                totals[idx] += invoice.grandTotal
+            }
+
+            val labels = listOf("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+            labels.mapIndexed { i, label -> WeekdaySalesPoint(weekday = label, totalSales = totals[i]) }
+        }
+    }
     
     fun getDailySalesSummary(): Flow<List<DailySalesSummary>> {
         return getAllInvoices().map { invoices ->
